@@ -13,11 +13,9 @@ exports.register = async (req, res) => {
   }
 
   try {
-    // 1. Criptografar a senha
     const salt = await bcrypt.genSalt(10);
     const senha_hash = await bcrypt.hash(senha, salt);
 
-    // 2. Inserir o usuário no banco de dados
     const result = await sql.query`
       INSERT INTO usuarios (nome_completo, email, senha_hash, telefone)
       OUTPUT INSERTED.id, INSERTED.email, INSERTED.nome_completo
@@ -26,11 +24,10 @@ exports.register = async (req, res) => {
 
     const novoUsuario = result.recordset[0];
 
-    // 3. Gerar um token JWT para o novo usuário
     const token = jwt.sign(
       { id: novoUsuario.id, email: novoUsuario.email },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' } // Token expira em 8 horas
+      { expiresIn: '8h' } 
     );
 
     res.status(201).json({ 
@@ -44,7 +41,6 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    // Verifica se o erro é de violação de chave única (e-mail duplicado)
     if (error.number === 2627 || error.number === 2601) {
       return res.status(409).json({ message: 'Este e-mail já está em uso.' });
     }
@@ -63,20 +59,18 @@ exports.login = async (req, res) => {
   }
 
   try {
-    // 1. Buscar o usuário pelo e-mail
     const result = await sql.query`SELECT * FROM usuarios WHERE email = ${email}`;
 
     if (result.recordset.length === 0) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' }); // E-mail não encontrado
+      return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
     const usuario = result.recordset[0];
 
-    // 2. Comparar a senha fornecida com a senha criptografada no banco
     const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
 
     if (!senhaCorreta) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' }); // Senha incorreta
+      return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
     // 3. Gerar o token JWT

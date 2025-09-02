@@ -12,13 +12,10 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    // Verifica se o token é válido usando o segredo
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Adiciona os dados do usuário decodificados ao objeto da requisição
     req.user = decoded;
     
-    // Continua para a próxima função (o controller da rota)
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Token inválido.' });
