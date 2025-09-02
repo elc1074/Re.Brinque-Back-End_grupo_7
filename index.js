@@ -2,6 +2,7 @@
 
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const { connectToDatabase } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const verifyToken = require('./middleware/authMiddleware');
@@ -9,6 +10,7 @@ const verifyToken = require('./middleware/authMiddleware');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 
   const swaggerUi = require('swagger-ui-express');
@@ -20,7 +22,6 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 
 // Rota de exemplo PROTEGIDA
-// Apenas usuários com um token válido podem acessar esta rota
 app.get('/api/perfil', verifyToken, (req, res) => {
   res.json({
     message: `Bem-vindo ao seu perfil, usuário com ID ${req.user.id}!`,
