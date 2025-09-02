@@ -17,7 +17,16 @@ include_once __DIR__ . '/controllers/UsuarioController.php';
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $requestMethod = $_SERVER["REQUEST_METHOD"];
 
-$uriSegments = explode('/', trim($uri, '/'));
+// Remove a barra inicial e final para consistência no roteamento
+$trimmedUri = trim($uri, '/');
+$uriSegments = explode('/', $trimmedUri);
+
+// CORREÇÃO: Trata o caso da rota raiz para o Health Check do Render
+if (empty($trimmedUri)) {
+    http_response_code(200);
+    echo json_encode(["status" => "ok", "message" => "API Re.Brinque está online."]);
+    exit();
+}
 
 if (isset($uriSegments[0]) && $uriSegments[0] !== 'api') {
     http_response_code(404);
