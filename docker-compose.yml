@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app_php:
+    build: .
+    container_name: app_php
+    ports:
+      - "8080:80"
+    environment:
+      DB_HOST: sqlserver_db
+      DB_PORT: 1433
+      DB_DATABASE: master
+      DB_USERNAME: sa
+      DB_PASSWORD: '#Dsf8491!'
+    depends_on:
+      - sqlserver_db
+
+  sqlserver_db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_db
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: '#Dsf8491!'
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql-data:/var/opt/mssql
+
+volumes:
+  sql-data:
+
