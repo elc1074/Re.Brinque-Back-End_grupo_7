@@ -5,7 +5,8 @@ const express = require('express');
 const cors = require('cors');
 const { connectToDatabase } = require('./db');
 const authRoutes = require('./routes/authRoutes');
-const verifyToken = require('./middleware/authMiddleware');
+const verifyToken = require('./middlewares/authMiddleware');
+const anuncioRoutes = require('./routes/anuncioRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,9 @@ app.use(express.json());
 // --- ROTAS ---
 // Rotas de autenticação (não protegidas)
 app.use('/api/auth', authRoutes);
+
+// Rotas de anúncios (protegidas e não protegidas, conforme definido em anuncioRoutes.js)
+app.use('/api/anuncios', anuncioRoutes); // --- ADICIONADO ---
 
 // Rota de exemplo PROTEGIDA
 app.get('/api/perfil', verifyToken, (req, res) => {
