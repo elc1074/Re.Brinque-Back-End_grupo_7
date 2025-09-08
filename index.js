@@ -7,6 +7,7 @@ const { connectToDatabase } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const verifyToken = require('./middlewares/authMiddleware');
 const anuncioRoutes = require('./routes/anuncioRoutes');
+const cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,7 +24,10 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 
 // Rotas de anúncios (protegidas e não protegidas, conforme definido em anuncioRoutes.js)
-app.use('/api/anuncios', anuncioRoutes); // --- ADICIONADO ---
+app.use('/api/anuncios', anuncioRoutes);
+
+// Rota para configurações do Cloudinary (protegida)
+app.use('/api/cloudinary', cloudinaryRoutes);
 
 // Rota de exemplo PROTEGIDA
 app.get('/api/perfil', verifyToken, (req, res) => {

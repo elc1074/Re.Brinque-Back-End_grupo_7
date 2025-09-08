@@ -1,6 +1,7 @@
-const { sql } = require('../db');
+// Importamos o 'pool' para poder usar transações e requisições explícitas.
+const { sql, pool } = require('../db');
 
-// Criar anúncio
+// Criar anúncio com imagens
 exports.criar = async (req, res) => {
   const {
     usuario_id,
@@ -10,31 +11,50 @@ exports.criar = async (req, res) => {
     descricao,
     tipo,
     condicao,
-    status
+    status,
+    imagens 
   } = req.body;
 
-  if (!usuario_id || !categoria_id || !titulo || !tipo || !condicao || !status) {
+  if (!usuario_id || !categoria_id || !endereco_id || !titulo || !tipo || !condicao) {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
+  const transaction = pool.transaction();
   try {
-    const result = await sql.query`
+    await transaction.begin();
+
+    const resultAnuncio = await transaction.request().query`
       INSERT INTO anuncios (
         usuario_id, categoria_id, endereco_id, titulo, descricao, tipo, condicao, status, data_publicacao, data_atualizacao
       )
-      OUTPUT INSERTED.*
+      OUTPUT INSERTED.id
       VALUES (
-        ${usuario_id}, ${categoria_id}, ${endereco_id}, ${titulo}, ${descricao}, ${tipo}, ${condicao}, ${status}, GETDATE(), GETDATE()
+        ${usuario_id}, ${categoria_id}, ${endereco_id}, ${titulo}, ${descricao}, ${tipo}, ${condicao}, ${status || 'DISPONIVEL'}, GETDATE(), GETDATE()
       )
     `;
-    res.status(201).json({ anuncio: result.recordset[0] });
+    const anuncioId = resultAnuncio.recordset[0].id;
+
+    if (imagens && imagens.length > 0) {
+      for (const imagem of imagens) {
+        await transaction.request().query`
+          INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
+          VALUES (${anuncioId}, ${imagem.url_imagem}, ${imagem.principal || 0})
+        `;
+      }
+    }
+
+    await transaction.commit();
+    
+    await exports.listarPorId({ params: { id: anuncioId } }, res, true);
+    
   } catch (error) {
+    await transaction.rollback();
     console.error('Erro ao criar anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
 
-// Editar anúncio
+// Editar anúncio com imagens
 exports.editar = async (req, res) => {
   const { id } = req.params;
   const {
@@ -44,11 +64,15 @@ exports.editar = async (req, res) => {
     descricao,
     tipo,
     condicao,
-    status
+    status,
+    imagens
   } = req.body;
 
+  const transaction = pool.transaction();
   try {
-    const result = await sql.query`
+    await transaction.begin();
+
+    const result = await transaction.request().query`
       UPDATE anuncios
       SET
         categoria_id = ${categoria_id},
@@ -62,39 +86,110 @@ exports.editar = async (req, res) => {
       OUTPUT INSERTED.*
       WHERE id = ${id}
     `;
+
     if (result.recordset.length === 0) {
+      await transaction.rollback();
       return res.status(404).json({ message: 'Anúncio não encontrado.' });
     }
-    res.json({ anuncio: result.recordset[0] });
+
+    await transaction.request().query`DELETE FROM imagensAnuncio WHERE anuncio_id = ${id}`;
+
+    if (imagens && imagens.length > 0) {
+      for (const imagem of imagens) {
+        await transaction.request().query`
+          INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
+          VALUES (${id}, ${imagem.url_imagem}, ${imagem.principal || 0})
+        `;
+      }
+    }
+
+    await transaction.commit();
+    
+    await exports.listarPorId({ params: { id } }, res, true);
+
   } catch (error) {
+    await transaction.rollback();
     console.error('Erro ao editar anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
 
-// Listar todos os anúncios
 exports.listarTodos = async (req, res) => {
   try {
-    const result = await sql.query`SELECT * FROM anuncios`;
-    res.json({ anuncios: result.recordset });
+    const result = await pool.request().query`
+        SELECT 
+            a.*, 
+            ia.id as imagem_id, 
+            ia.url_imagem, 
+            ia.principal
+        FROM 
+            anuncios a
+        LEFT JOIN 
+            imagensAnuncio ia ON a.id = ia.anuncio_id
+        ORDER BY a.data_publicacao DESC
+    `;
+
+    const anunciosMap = new Map();
+    result.recordset.forEach(row => {
+      if (!anunciosMap.has(row.id)) {
+        anunciosMap.set(row.id, {
+          ...row,
+          imagens: []
+        });
+        delete anunciosMap.get(row.id).imagem_id;
+        delete anunciosMap.get(row.id).url_imagem;
+        delete anunciosMap.get(row.id).principal;
+      }
+      
+      if (row.imagem_id) {
+        anunciosMap.get(row.id).imagens.push({
+          id: row.imagem_id,
+          url_imagem: row.url_imagem,
+          principal: row.principal
+        });
+      }
+    });
+
+    const anuncios = Array.from(anunciosMap.values());
+    res.json({ anuncios });
+
   } catch (error) {
     console.error('Erro ao listar anúncios:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
 
-// Listar anúncio por id
-exports.listarPorId = async (req, res) => {
+// Listar um anúncio por id com suas imagens
+exports.listarPorId = async (req, res, returnResult = false) => {
   const { id } = req.params;
   try {
-    const result = await sql.query`SELECT * FROM anuncios WHERE id = ${id}`;
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ message: 'Anúncio não encontrado.' });
+
+    const resultAnuncio = await pool.request().query`SELECT * FROM anuncios WHERE id = ${id}`;
+    
+    if (resultAnuncio.recordset.length === 0) {
+      if (!returnResult) {
+        return res.status(404).json({ message: 'Anúncio não encontrado.' });
+      }
+      return null;
     }
-    res.json({ anuncio: result.recordset[0] });
+
+    const resultImagens = await pool.request().query`SELECT id, url_imagem, principal FROM imagensAnuncio WHERE anuncio_id = ${id}`;
+    
+    const anuncio = resultAnuncio.recordset[0];
+    anuncio.imagens = resultImagens.recordset;
+
+    if (returnResult) {
+        if (res.headersSent) return; 
+        res.status(201).json({ anuncio });
+    } else {
+        res.json({ anuncio });
+    }
+
   } catch (error) {
     console.error('Erro ao buscar anúncio:', error);
-    res.status(500).json({ message: 'Erro interno do servidor.' });
+    if (!returnResult && !res.headersSent) {
+        res.status(500).json({ message: 'Erro interno do servidor.' });
+    }
   }
 };
 
@@ -102,7 +197,7 @@ exports.listarPorId = async (req, res) => {
 exports.excluir = async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await sql.query`
+    const result = await pool.request().query`
       DELETE FROM anuncios
       OUTPUT DELETED.*
       WHERE id = ${id}
