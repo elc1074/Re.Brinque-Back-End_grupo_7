@@ -1,13 +1,11 @@
-
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { sql } = require('../db');
+const { pool } = require('../db');
 
 // --- CADASTRO DE NOVO USUÁRIO ---
 exports.register = async (req, res) => {
   const { nome_completo, email, senha, telefone } = req.body;
 
-  // Validação básica dos campos
   if (!nome_completo || !email || !senha) {
     return res.status(400).json({ message: 'Nome, e-mail e senha são obrigatórios.' });
   }
@@ -16,7 +14,7 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const senha_hash = await bcrypt.hash(senha, salt);
 
-    const result = await sql.query`
+    const result = await pool.request().query`
       INSERT INTO usuarios (nome_completo, email, senha_hash, telefone)
       OUTPUT INSERTED.id, INSERTED.email, INSERTED.nome_completo
       VALUES (${nome_completo}, ${email}, ${senha_hash}, ${telefone})
@@ -59,7 +57,7 @@ exports.login = async (req, res) => {
   }
 
   try {
-    const result = await sql.query`SELECT * FROM usuarios WHERE email = ${email}`;
+    const result = await pool.request().query`SELECT * FROM usuarios WHERE email = ${email}`;
 
     if (result.recordset.length === 0) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
@@ -73,7 +71,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    // 3. Gerar o token JWT
     const token = jwt.sign(
       { id: usuario.id, email: usuario.email },
       process.env.JWT_SECRET,
