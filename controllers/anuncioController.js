@@ -15,7 +15,7 @@ exports.criar = async (req, res) => {
     imagens 
   } = req.body;
 
-  if (!usuario_id || !categoria_id || !endereco_completo || !titulo || !tipo || !condicao) {
+  if (!usuario_id || !categoria_id || !titulo || !tipo || !condicao) {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
@@ -74,7 +74,6 @@ exports.editar = async (req, res) => {
     await transaction.begin();
 
     const result = await transaction.request().query`
-      -- ALTERAÇÃO: Query atualizada para incluir as novas colunas
       UPDATE anuncios
       SET
         categoria_id = ${categoria_id},
