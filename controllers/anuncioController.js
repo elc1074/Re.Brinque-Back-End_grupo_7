@@ -1,4 +1,3 @@
-// Importamos o 'pool' para poder usar transações e requisições explícitas.
 const { sql, pool } = require('../db');
 
 // Criar anúncio com imagens
@@ -6,16 +5,17 @@ exports.criar = async (req, res) => {
   const {
     usuario_id,
     categoria_id,
-    endereco_id,
+    endereco_completo,
     titulo,
     descricao,
+    marca,
     tipo,
     condicao,
     status,
     imagens 
   } = req.body;
 
-  if (!usuario_id || !categoria_id || !endereco_id || !titulo || !tipo || !condicao) {
+  if (!usuario_id || !categoria_id || !endereco_completo || !titulo || !tipo || !condicao) {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
@@ -25,11 +25,11 @@ exports.criar = async (req, res) => {
 
     const resultAnuncio = await transaction.request().query`
       INSERT INTO anuncios (
-        usuario_id, categoria_id, endereco_id, titulo, descricao, tipo, condicao, status, data_publicacao, data_atualizacao
+        usuario_id, categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status, data_publicacao, data_atualizacao
       )
       OUTPUT INSERTED.id
       VALUES (
-        ${usuario_id}, ${categoria_id}, ${endereco_id}, ${titulo}, ${descricao}, ${tipo}, ${condicao}, ${status || 'DISPONIVEL'}, GETDATE(), GETDATE()
+        ${usuario_id}, ${categoria_id}, ${endereco_completo}, ${titulo}, ${descricao}, ${marca}, ${tipo}, ${condicao}, ${status || 'DISPONIVEL'}, GETDATE(), GETDATE()
       )
     `;
     const anuncioId = resultAnuncio.recordset[0].id;
@@ -59,9 +59,10 @@ exports.editar = async (req, res) => {
   const { id } = req.params;
   const {
     categoria_id,
-    endereco_id,
+    endereco_completo,
     titulo,
     descricao,
+    marca,
     tipo,
     condicao,
     status,
@@ -73,12 +74,14 @@ exports.editar = async (req, res) => {
     await transaction.begin();
 
     const result = await transaction.request().query`
+      -- ALTERAÇÃO: Query atualizada para incluir as novas colunas
       UPDATE anuncios
       SET
         categoria_id = ${categoria_id},
-        endereco_id = ${endereco_id},
+        endereco_completo = ${endereco_completo},
         titulo = ${titulo},
         descricao = ${descricao},
+        marca = ${marca},
         tipo = ${tipo},
         condicao = ${condicao},
         status = ${status},
@@ -159,7 +162,6 @@ exports.listarTodos = async (req, res) => {
   }
 };
 
-// Listar um anúncio por id com suas imagens
 exports.listarPorId = async (req, res, returnResult = false) => {
   const { id } = req.params;
   try {
@@ -193,7 +195,6 @@ exports.listarPorId = async (req, res, returnResult = false) => {
   }
 };
 
-// Excluir anúncio
 exports.excluir = async (req, res) => {
   const { id } = req.params;
   try {

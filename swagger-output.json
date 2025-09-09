@@ -141,13 +141,16 @@
                 "categoria_id": {
                   "example": "any"
                 },
-                "endereco_id": {
+                "endereco_completo": {
                   "example": "any"
                 },
                 "titulo": {
                   "example": "any"
                 },
                 "descricao": {
+                  "example": "any"
+                },
+                "marca": {
                   "example": "any"
                 },
                 "tipo": {
@@ -217,13 +220,16 @@
                 "categoria_id": {
                   "example": "any"
                 },
-                "endereco_id": {
+                "endereco_completo": {
                   "example": "any"
                 },
                 "titulo": {
                   "example": "any"
                 },
                 "descricao": {
+                  "example": "any"
+                },
+                "marca": {
                   "example": "any"
                 },
                 "tipo": {
