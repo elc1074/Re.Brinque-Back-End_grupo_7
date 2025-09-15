@@ -53,17 +53,10 @@ exports.googleCallback = async (req, res) => {
       { expiresIn: "8h" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      path: "/",
-      maxAge: 1000 * 60 * 60 * 8,
-    });
-
+    // REMOVA res.cookie() - deixe o front-end gerenciar
     res.status(200).json({
+      token: token, // ✅ Token no JSON
       usuario: {
-        token: usuario.token,
         id: usuario.id,
         nome: usuario.nome_completo,
         email: usuario.email,
@@ -192,7 +185,6 @@ exports.syncUsuario = async (req, res) => {
     let google_id = googleIdParam;
 
     if (code) {
-      
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -245,7 +237,6 @@ exports.syncUsuario = async (req, res) => {
         
         usuario.google_id = google_id;
       }
-
     } else {
       const result = await pool.request()
         .input('nome_completo', sql.VarChar(255), nome)
@@ -271,17 +262,10 @@ exports.syncUsuario = async (req, res) => {
       { expiresIn: '8h' }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,           
-      sameSite: "none",         
-      path: "/",               
-      maxAge: 1000 * 60 * 60 * 8, 
-    });
-
+    // REMOVA res.cookie() - deixe o front-end gerenciar
     res.status(200).json({
+      token: token, // ✅ Token no JSON (corrigido)
       usuario: {
-        token: usuario.token,
         id: usuario.id,
         nome: usuario.nome_completo,
         email: usuario.email,
@@ -291,7 +275,6 @@ exports.syncUsuario = async (req, res) => {
       auth_type: 'google',
       message: 'Usuário Google sincronizado com sucesso'
     });
-
   } catch (error) {
     if (error.number === 2627 || error.number === 2601) {
       return res.status(409).json({ error: 'Este e-mail já está em uso.' });
