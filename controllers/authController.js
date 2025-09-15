@@ -53,14 +53,6 @@ exports.googleCallback = async (req, res) => {
       { expiresIn: "8h" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      path: "/",
-      maxAge: 1000 * 60 * 60 * 8,
-    });
-
     res.status(200).json({
       usuario: {
         token: usuario.token,
@@ -270,14 +262,6 @@ exports.syncUsuario = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,           
-      sameSite: "none",         
-      path: "/",               
-      maxAge: 1000 * 60 * 60 * 8, 
-    });
 
     res.status(200).json({
       usuario: {
