@@ -12,11 +12,27 @@ const cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  'https://front-re-brinque.vercel.app', // ✅ URL CORRETA do seu frontend
+  'http://localhost:3000'
+];
 
 app.use(cors({
-  origin: 'https://front-re-brinque.vercel.app',
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
+
 app.use(express.json());
 
   const swaggerUi = require('swagger-ui-express');

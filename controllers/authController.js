@@ -56,7 +56,7 @@ exports.googleCallback = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: true,
-      sameSite: "None",
+      sameSite: "none",
       path: "/",
       maxAge: 1000 * 60 * 60 * 8,
     });
@@ -199,7 +199,7 @@ exports.syncUsuario = async (req, res) => {
           code,
           client_id: process.env.GOOGLE_CLIENT_ID,
           client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: redirect_uri || 'https://front-re-brinque.vercel.app/',
+          redirect_uri: redirect_uri || 'https://front-re-brinque.vercel.app',
           grant_type: 'authorization_code'
         })
       });
@@ -273,7 +273,7 @@ exports.syncUsuario = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: true,           
-      sameSite: "None",         
+      sameSite: "none",         
       path: "/",               
       maxAge: 1000 * 60 * 60 * 8, 
     });
