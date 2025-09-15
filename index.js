@@ -13,43 +13,27 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
-  'https://front-re-brinque.vercel.app', 
+  'https://front-re-brinque.vercel.app',
   'http://localhost:3000'
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  origin: allowedOrigins,
+  credentials: true
 }));
 
 app.use(express.json());
 
-  const swaggerUi = require('swagger-ui-express');
-  const swaggerFile = require('./swagger-output.json');
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+// ✅ Swagger para documentação da API
+const swaggerUi = require('swagger-ui-express');
+const swaggerFile = require('./swagger-output.json');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
-// --- ROTAS ---
-// Rotas de autenticação (não protegidas)
 app.use('/api/auth', authRoutes);
-
-// Rotas de anúncios (protegidas e não protegidas, conforme definido em anuncioRoutes.js)
 app.use('/api/anuncios', anuncioRoutes);
-
-// Rota para configurações do Cloudinary (protegida)
 app.use('/api/cloudinary', cloudinaryRoutes);
 
-// Rota de exemplo PROTEGIDA
+// ✅ Rota protegida de exemplo
 app.get('/api/perfil', verifyToken, (req, res) => {
   res.json({
     message: `Bem-vindo ao seu perfil, usuário com ID ${req.user.id}!`,
