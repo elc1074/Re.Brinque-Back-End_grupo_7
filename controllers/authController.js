@@ -294,7 +294,7 @@ exports.syncUsuario = async (req, res) => {
     if (error.number === 2627 || error.number === 2601) {
       return res.status(409).json({ error: 'Este e-mail já está em uso.' });
     }
-    res.status(500).json({ error: 'Erro interno do servidor.' });
+    res.status(500).json({ error: 'Erro interno do servidor.', details: error.message });
   }
 };
 

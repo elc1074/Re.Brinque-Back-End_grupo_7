@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
-  'https://front-re-brinque.vercel.app', // ✅ URL CORRETA do seu frontend
+  'https://front-re-brinque.vercel.app', 
   'http://localhost:3000'
 ];
 
