@@ -77,3 +77,11 @@ CREATE TABLE avaliacoes (
     FOREIGN KEY (avaliador_id) REFERENCES usuarios(id),
     FOREIGN KEY (avaliado_id) REFERENCES usuarios(id)
 );
+
+-- Adiciona a coluna google_id
+ALTER TABLE usuarios
+ADD google_id VARCHAR(255) NULL;
+
+-- Torna a senha_hash opcional
+ALTER TABLE usuarios
+ALTER COLUMN senha_hash VARCHAR(255) NULL;
