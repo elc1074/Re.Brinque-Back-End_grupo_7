@@ -56,8 +56,7 @@ exports.googleCallback = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: true,
-      sameSite: "Strict",
-      domain: "re-brinque.vercel.app",
+      sameSite: "None",
       path: "/",
       maxAge: 1000 * 60 * 60 * 8,
     });
@@ -274,8 +273,7 @@ exports.syncUsuario = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: true,           
-      sameSite: "Lax",         
-      domain: "re-brinque.vercel.app",     
+      sameSite: "None",         
       path: "/",               
       maxAge: 1000 * 60 * 60 * 8, 
     });
