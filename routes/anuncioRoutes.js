@@ -9,11 +9,14 @@ router.post('/', authMiddleware, anuncioController.criar);
 // Editar anúncio
 router.put('/:id', authMiddleware, anuncioController.editar);
 
-// Listar todos os anúncios
+// Listar todos os anúncios (com filtros)
 router.get('/', anuncioController.listarTodos);
 
 // Listar anúncio por id
 router.get('/:id', anuncioController.listarPorId);
+
+// Listar anúncios por ID do usuário
+router.get('/usuario/:usuario_id', anuncioController.listarPorUsuario);
 
 // Excluir anúncio
 router.delete('/:id', authMiddleware, anuncioController.excluir);

@@ -1,23 +1,30 @@
 {
-  "swagger": "2.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "API Re.Brinque",
-    "description": "Documentação da API do projeto Re.Brinque.",
+    "title": "API Re-Brinque",
+    "description": "Documentação da API do projeto Re-Brinque, para gerenciamento de usuários, anúncios de brinquedos e transações.",
     "version": "1.0.0"
   },
-  "host": "localhost:3000",
-  "basePath": "/",
-  "schemes": [
-    "http"
-  ],
-  "securityDefinitions": {
-    "bearerAuth": {
-      "type": "apiKey",
-      "name": "Authorization",
-      "in": "header",
-      "description": "Token de autenticação JWT. Exemplo: 'Bearer {token}'"
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Servidor de Desenvolvimento"
     }
-  },
+  ],
+  "tags": [
+    {
+      "name": "Autenticação",
+      "description": "Endpoints para registro, login e gerenciamento de sessão."
+    },
+    {
+      "name": "Anúncios",
+      "description": "Endpoints para gerenciar os anúncios de brinquedos."
+    },
+    {
+      "name": "Configuração",
+      "description": "Endpoints de configurações de serviços externos."
+    }
+  ],
   "paths": {
     "/api/perfil": {
       "get": {
@@ -26,7 +33,9 @@
           {
             "name": "authorization",
             "in": "header",
-            "type": "string"
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -44,134 +53,188 @@
     },
     "/api/auth/register": {
       "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "nome_completo": {
-                  "example": "any"
-                },
-                "email": {
-                  "example": "any"
-                },
-                "senha": {
-                  "example": "any"
-                },
-                "telefone": {
-                  "example": "any"
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Registrar um novo usuário",
+        "description": "Cria uma nova conta de usuário com nome, e-mail e senha.",
+        "responses": {
+          "201": {
+            "description": "Usuário cadastrado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
                 }
               }
             }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created"
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Campos obrigatórios faltando."
           },
           "409": {
-            "description": "Conflict"
+            "description": "Este e-mail já está em uso."
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpoRegistroUsuario"
+              }
+            }
           }
         }
       }
     },
     "/api/auth/login": {
       "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "example": "any"
-                },
-                "senha": {
-                  "example": "any"
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Login de usuário",
+        "description": "Autentica um usuário com e-mail e senha e retorna um token JWT.",
+        "responses": {
+          "200": {
+            "description": "Login bem-sucedido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
                 }
               }
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           },
           "400": {
-            "description": "Bad Request"
+            "description": "E-mail e senha são obrigatórios."
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Credenciais inválidas ou a conta requer login com Google."
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpoLoginUsuario"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sync": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Sincronizar conta de usuário com o Google",
+        "description": "Endpoint legado para sincronização com o Google via authorization_code, substituído por googleCallback.",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/auth/google-callback": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Callback de Autenticação Google",
+        "description": "Processa o token de credencial do Google para login ou registro.",
+        "responses": {
+          "200": {
+            "description": "Login ou registro com Google realizado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacao"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno no processamento da autenticação Google."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "credential": {
+                    "type": "string",
+                    "description": "O token ID JWT fornecido pelo Google Sign-In."
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/anuncios/": {
       "post": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Criar um novo anúncio",
+        "description": "Cria um novo anúncio associado a um usuário, incluindo imagens.",
         "parameters": [
           {
             "name": "authorization",
             "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
             "schema": {
-              "type": "object",
-              "properties": {
-                "usuario_id": {
-                  "example": "any"
-                },
-                "categoria_id": {
-                  "example": "any"
-                },
-                "endereco_completo": {
-                  "example": "any"
-                },
-                "titulo": {
-                  "example": "any"
-                },
-                "descricao": {
-                  "example": "any"
-                },
-                "marca": {
-                  "example": "any"
-                },
-                "tipo": {
-                  "example": "any"
-                },
-                "condicao": {
-                  "example": "any"
-                },
-                "status": {
-                  "example": "any"
-                },
-                "imagens": {
-                  "example": "any"
-                }
-              }
+              "type": "string"
             }
           }
         ],
         "responses": {
+          "201": {
+            "description": "Anúncio criado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "anuncio": {
+                      "$ref": "#/components/schemas/Anuncio"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "400": {
-            "description": "Bad Request"
+            "description": "Campos obrigatórios faltando."
           },
           "401": {
             "description": "Unauthorized"
@@ -180,75 +243,162 @@
             "description": "Forbidden"
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpoCriarAnuncio"
+              }
+            }
           }
         }
       },
       "get": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Listar e filtrar anúncios",
+        "description": "Retorna uma lista de todos os anúncios, com a possibilidade de aplicar filtros.",
+        "parameters": [
+          {
+            "name": "titulo",
+            "in": "query",
+            "description": "Filtrar por título (busca parcial)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "description": "Filtrar por ID da categoria",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "description": "Filtrar por tipo",
+            "enum": [
+              "TROCA",
+              "DOACAO"
+            ],
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "condicao",
+            "in": "query",
+            "description": "Filtrar por condição",
+            "enum": [
+              "NOVO",
+              "SEMINOVO",
+              "USADO"
+            ],
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "marca",
+            "in": "query",
+            "description": "Filtrar por marca (busca parcial)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Lista de anúncios retornada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "anuncios": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Anuncio"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
           }
         }
       }
     },
     "/api/anuncios/{id}": {
       "put": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Editar um anúncio",
+        "description": "Atualiza os dados de um anúncio existente pelo seu ID.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do Anúncio"
           },
           {
             "name": "authorization",
             "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
             "schema": {
-              "type": "object",
-              "properties": {
-                "categoria_id": {
-                  "example": "any"
-                },
-                "endereco_completo": {
-                  "example": "any"
-                },
-                "titulo": {
-                  "example": "any"
-                },
-                "descricao": {
-                  "example": "any"
-                },
-                "marca": {
-                  "example": "any"
-                },
-                "tipo": {
-                  "example": "any"
-                },
-                "condicao": {
-                  "example": "any"
-                },
-                "status": {
-                  "example": "any"
-                },
-                "imagens": {
-                  "example": "any"
-                }
-              }
+              "type": "string"
             }
           }
         ],
         "responses": {
+          "201": {
+            "description": "Anúncio atualizado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "anuncio": {
+                      "$ref": "#/components/schemas/Anuncio"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized"
           },
@@ -256,56 +406,115 @@
             "description": "Forbidden"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Anúncio não encontrado."
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpoEditarAnuncio"
+              }
+            }
           }
         }
       },
       "get": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Obter anúncio por ID",
+        "description": "Retorna os detalhes de um anúncio específico pelo seu ID.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do Anúncio"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Anúncio encontrado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "anuncio": {
+                      "$ref": "#/components/schemas/Anuncio"
+                    }
+                  }
+                }
+              }
+            }
           },
           "201": {
             "description": "Created"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Anúncio não encontrado."
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
           }
         }
       },
       "delete": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Excluir um anúncio",
+        "description": "Remove um anúncio do sistema pelo seu ID.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do Anúncio"
           },
           {
             "name": "authorization",
             "in": "header",
-            "type": "string"
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Anúncio excluído com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Anúncio excluído com sucesso."
+                    },
+                    "anuncio": {
+                      "$ref": "#/components/schemas/Anuncio"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized"
@@ -314,27 +523,107 @@
             "description": "Forbidden"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Anúncio não encontrado."
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro interno do servidor."
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
-    "/api/cloudinary/config": {
+    "/api/anuncios/usuario/{usuario_id}": {
       "get": {
-        "description": "",
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Listar anúncios por ID do usuário",
+        "description": "Retorna todos os anúncios criados por um usuário específico.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
+            "name": "usuario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do Usuário"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Lista de anúncios do usuário retornada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "anuncios": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Anuncio"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno do servidor."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/cloudinary/config": {
+      "get": {
+        "tags": [
+          "Configuração"
+        ],
+        "summary": "Obter configuração do Cloudinary",
+        "description": "Retorna as chaves públicas necessárias para o front-end interagir com a API do Cloudinary para fazer upload de imagens.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuração retornada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cloudName": {
+                      "type": "string",
+                      "example": "seu-cloud-name"
+                    },
+                    "apiKey": {
+                      "type": "string",
+                      "example": "123456789012345"
+                    },
+                    "uploadPreset": {
+                      "type": "string",
+                      "example": "seu-upload-preset"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized"
@@ -343,8 +632,834 @@
             "description": "Forbidden"
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Erro de configuração do servidor ou erro interno."
           }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token de autenticação JWT. Exemplo: 'Bearer {token}'"
+      }
+    },
+    "schemas": {
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 1
+                  }
+                }
+              },
+              "nome_completo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "João da Silva"
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "email"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "joao@example.com"
+                  }
+                }
+              },
+              "telefone": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "11987654321"
+                  }
+                }
+              },
+              "google_id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              },
+              "data_cadastro": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "Usuario"
+        }
+      },
+      "Anuncio": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 10
+                  }
+                }
+              },
+              "usuario_id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 1
+                  }
+                }
+              },
+              "categoria_id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 5
+                  }
+                }
+              },
+              "titulo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Carrinho de Controle Remoto"
+                  }
+                }
+              },
+              "descricao": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Pouco usado, em perfeito estado."
+                  }
+                }
+              },
+              "marca": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Hot Wheels"
+                  }
+                }
+              },
+              "tipo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "TROCA",
+                      "DOACAO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "TROCA"
+                  }
+                }
+              },
+              "condicao": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "NOVO",
+                      "SEMINOVO",
+                      "USADO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "SEMINOVO"
+                  }
+                }
+              },
+              "status": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "DISPONIVEL",
+                      "NEGOCIANDO",
+                      "FINALIZADO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "DISPONIVEL"
+                  }
+                }
+              },
+              "data_publicacao": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "date-time"
+                  }
+                }
+              },
+              "imagens": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "array"
+                  },
+                  "items": {
+                    "xml": {
+                      "name": "imagemanuncio"
+                    },
+                    "$ref": "#/components/schemas/ImagemAnuncio"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "Anuncio"
+        }
+      },
+      "ImagemAnuncio": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  },
+                  "example": {
+                    "type": "number",
+                    "example": 101
+                  }
+                }
+              },
+              "url_imagem": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "uri"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "https://res.cloudinary.com/..."
+                  }
+                }
+              },
+              "principal": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "boolean"
+                  },
+                  "example": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "ImagemAnuncio"
+        }
+      },
+      "CorpoRegistroUsuario": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "nome_completo",
+              "email",
+              "senha"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "nome_completo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "Maria Souza"
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "email"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "maria.souza@example.com"
+                  }
+                }
+              },
+              "senha": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "password"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "senhaForte123"
+                  }
+                }
+              },
+              "telefone": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "nullable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "21912345678"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "CorpoRegistroUsuario"
+        }
+      },
+      "CorpoLoginUsuario": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "email",
+              "senha"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "email"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "maria.souza@example.com"
+                  }
+                }
+              },
+              "senha": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "format": {
+                    "type": "string",
+                    "example": "password"
+                  },
+                  "example": {
+                    "type": "string",
+                    "example": "senhaForte123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "CorpoLoginUsuario"
+        }
+      },
+      "CorpoCriarAnuncio": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "required": {
+            "type": "array",
+            "example": [
+              "usuario_id",
+              "categoria_id",
+              "titulo",
+              "tipo",
+              "condicao"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "usuario_id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  }
+                }
+              },
+              "categoria_id": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "integer"
+                  }
+                }
+              },
+              "endereco_completo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "titulo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "descricao": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "marca": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "tipo": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "TROCA",
+                      "DOACAO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "condicao": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "NOVO",
+                      "SEMINOVO",
+                      "USADO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "status": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "DISPONIVEL",
+                      "NEGOCIANDO",
+                      "FINALIZADO"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "imagens": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "array"
+                  },
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "object"
+                      },
+                      "properties": {
+                        "type": "object",
+                        "properties": {
+                          "url_imagem": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "string"
+                              },
+                              "format": {
+                                "type": "string",
+                                "example": "uri"
+                              }
+                            }
+                          },
+                          "principal": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "boolean"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "CorpoCriarAnuncio"
+        }
+      },
+      "RespostaAutenticacao": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "object"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "token": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  }
+                }
+              },
+              "usuario": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "object"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "integer"
+                          }
+                        }
+                      },
+                      "nome": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          }
+                        }
+                      },
+                      "email": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "string"
+                          },
+                          "format": {
+                            "type": "string",
+                            "example": "email"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "auth_type": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "example": "string"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "example": [
+                      "normal",
+                      "google"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "xml": {
+          "name": "RespostaAutenticacao"
         }
       }
     }
