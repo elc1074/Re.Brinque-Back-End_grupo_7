@@ -1,4 +1,4 @@
-const { sql, pool } = require('../db');
+const { pool } = require('../db');
 
 // Criar anúncio com imagens
 exports.criar = async (req, res) => {
@@ -38,38 +38,45 @@ exports.criar = async (req, res) => {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
-  const transaction = pool.transaction();
+  const client = await pool.connect(); // Pega uma conexão do pool
   try {
-    await transaction.begin();
+    await client.query('BEGIN'); // Inicia a transação
 
-    const resultAnuncio = await transaction.request().query`
+    const queryAnuncio = `
       INSERT INTO anuncios (
         usuario_id, categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status, data_publicacao, data_atualizacao
       )
-      OUTPUT INSERTED.id
-      VALUES (
-        ${usuario_id}, ${categoria_id}, ${endereco_completo}, ${titulo}, ${descricao}, ${marca}, ${tipo}, ${condicao}, ${status || 'DISPONIVEL'}, GETDATE(), GETDATE()
-      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id
     `;
-    const anuncioId = resultAnuncio.recordset[0].id;
+    const valuesAnuncio = [
+      usuario_id, categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status || 'DISPONIVEL'
+    ];
+    
+    const resultAnuncio = await client.query(queryAnuncio, valuesAnuncio);
+    const anuncioId = resultAnuncio.rows[0].id;
 
     if (imagens && imagens.length > 0) {
       for (const imagem of imagens) {
-        await transaction.request().query`
+        const queryImagem = `
           INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
-          VALUES (${anuncioId}, ${imagem.url_imagem}, ${imagem.principal || 0})
+          VALUES ($1, $2, $3)
         `;
+        const valuesImagem = [anuncioId, imagem.url_imagem, imagem.principal || false];
+        await client.query(queryImagem, valuesImagem);
       }
     }
 
-    await transaction.commit();
+    await client.query('COMMIT'); // Confirma a transação
     
     await exports.listarPorId({ params: { id: anuncioId } }, res, true);
     
   } catch (error) {
-    await transaction.rollback();
+    await client.query('ROLLBACK'); // Desfaz a transação em caso de erro
     console.error('Erro ao criar anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
+  } finally {
+    client.release(); // Libera a conexão de volta para o pool
   }
 };
 
@@ -108,53 +115,63 @@ exports.editar = async (req, res) => {
     imagens
   } = req.body;
 
-  const transaction = pool.transaction();
+  const client = await pool.connect();
   try {
-    await transaction.begin();
+    await client.query('BEGIN');
 
-    const result = await transaction.request().query`
+    const queryUpdate = `
       UPDATE anuncios
       SET
-        categoria_id = ${categoria_id},
-        endereco_completo = ${endereco_completo},
-        titulo = ${titulo},
-        descricao = ${descricao},
-        marca = ${marca},
-        tipo = ${tipo},
-        condicao = ${condicao},
-        status = ${status},
-        data_atualizacao = GETDATE()
-      OUTPUT INSERTED.*
-      WHERE id = ${id}
+        categoria_id = $1,
+        endereco_completo = $2,
+        titulo = $3,
+        descricao = $4,
+        marca = $5,
+        tipo = $6,
+        condicao = $7,
+        status = $8,
+        data_atualizacao = CURRENT_TIMESTAMP
+      WHERE id = $9
+      RETURNING *
     `;
+    const valuesUpdate = [
+      categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status, id
+    ];
 
-    if (result.recordset.length === 0) {
-      await transaction.rollback();
+    const result = await client.query(queryUpdate, valuesUpdate);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Anúncio não encontrado.' });
     }
 
-    await transaction.request().query`DELETE FROM imagensAnuncio WHERE anuncio_id = ${id}`;
+    await client.query('DELETE FROM imagensAnuncio WHERE anuncio_id = $1', [id]);
 
     if (imagens && imagens.length > 0) {
       for (const imagem of imagens) {
-        await transaction.request().query`
+        const queryImagem = `
           INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
-          VALUES (${id}, ${imagem.url_imagem}, ${imagem.principal || 0})
+          VALUES ($1, $2, $3)
         `;
+        const valuesImagem = [id, imagem.url_imagem, imagem.principal || false];
+        await client.query(queryImagem, valuesImagem);
       }
     }
 
-    await transaction.commit();
+    await client.query('COMMIT');
     
     await exports.listarPorId({ params: { id } }, res, true);
 
   } catch (error) {
-    await transaction.rollback();
+    await client.query('ROLLBACK');
     console.error('Erro ao editar anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
+  } finally {
+    client.release();
   }
 };
 
+// Listar e filtrar anúncios
 exports.listarTodos = async (req, res) => {
   /*
     #swagger.tags = ['Anúncios']
@@ -195,27 +212,28 @@ exports.listarTodos = async (req, res) => {
     `;
 
     const conditions = [];
-    const request = pool.request();
+    const values = [];
+    let paramIndex = 1;
 
     if (titulo) {
-      conditions.push(`a.titulo LIKE @titulo`);
-      request.input('titulo', sql.VarChar, `%${titulo}%`);
+      conditions.push(`a.titulo ILIKE $${paramIndex++}`); // ILIKE para busca case-insensitive
+      values.push(`%${titulo}%`);
     }
     if (categoria_id) {
-      conditions.push(`a.categoria_id = @categoria_id`);
-      request.input('categoria_id', sql.Int, categoria_id);
+      conditions.push(`a.categoria_id = $${paramIndex++}`);
+      values.push(categoria_id);
     }
     if (tipo) {
-      conditions.push(`a.tipo = @tipo`);
-      request.input('tipo', sql.VarChar, tipo);
+      conditions.push(`a.tipo = $${paramIndex++}`);
+      values.push(tipo);
     }
     if (condicao) {
-      conditions.push(`a.condicao = @condicao`);
-      request.input('condicao', sql.VarChar, condicao);
+      conditions.push(`a.condicao = $${paramIndex++}`);
+      values.push(condicao);
     }
     if (marca) {
-        conditions.push(`a.marca LIKE @marca`);
-        request.input('marca', sql.VarChar, `%${marca}%`);
+        conditions.push(`a.marca ILIKE $${paramIndex++}`);
+        values.push(`%${marca}%`);
     }
 
     if (conditions.length > 0) {
@@ -224,10 +242,10 @@ exports.listarTodos = async (req, res) => {
 
     query += ` ORDER BY a.data_publicacao DESC`;
 
-    const result = await request.query(query);
+    const result = await pool.query(query, values);
 
     const anunciosMap = new Map();
-    result.recordset.forEach(row => {
+    result.rows.forEach(row => {
       if (!anunciosMap.has(row.id)) {
         anunciosMap.set(row.id, {
           ...row,
@@ -256,7 +274,7 @@ exports.listarTodos = async (req, res) => {
   }
 };
 
-//Listar anúncios por ID do usuário
+// Listar anúncios por ID do usuário
 exports.listarPorUsuario = async (req, res) => {
     /*
       #swagger.tags = ['Anúncios']
@@ -281,7 +299,7 @@ exports.listarPorUsuario = async (req, res) => {
     const { usuario_id } = req.params;
 
     try {
-        const result = await pool.request().query`
+        const query = `
             SELECT 
                 a.*, 
                 ia.id as imagem_id, 
@@ -292,16 +310,17 @@ exports.listarPorUsuario = async (req, res) => {
             LEFT JOIN 
                 imagensAnuncio ia ON a.id = ia.anuncio_id
             WHERE
-                a.usuario_id = ${usuario_id}
+                a.usuario_id = $1
             ORDER BY a.data_publicacao DESC
         `;
+        const result = await pool.query(query, [usuario_id]);
 
-        if (result.recordset.length === 0) {
+        if (result.rows.length === 0) {
             return res.json({ anuncios: [] });
         }
 
         const anunciosMap = new Map();
-        result.recordset.forEach(row => {
+        result.rows.forEach(row => {
             if (!anunciosMap.has(row.id)) {
                 anunciosMap.set(row.id, {
                     ...row,
@@ -350,19 +369,19 @@ exports.listarPorId = async (req, res, returnResult = false) => {
   const { id } = req.params;
   try {
 
-    const resultAnuncio = await pool.request().query`SELECT * FROM anuncios WHERE id = ${id}`;
+    const resultAnuncio = await pool.query('SELECT * FROM anuncios WHERE id = $1', [id]);
     
-    if (resultAnuncio.recordset.length === 0) {
+    if (resultAnuncio.rows.length === 0) {
       if (!returnResult) {
         return res.status(404).json({ message: 'Anúncio não encontrado.' });
       }
       return null;
     }
 
-    const resultImagens = await pool.request().query`SELECT id, url_imagem, principal FROM imagensAnuncio WHERE anuncio_id = ${id}`;
+    const resultImagens = await pool.query('SELECT id, url_imagem, principal FROM imagensAnuncio WHERE anuncio_id = $1', [id]);
     
-    const anuncio = resultAnuncio.recordset[0];
-    anuncio.imagens = resultImagens.recordset;
+    const anuncio = resultAnuncio.rows[0];
+    anuncio.imagens = resultImagens.rows;
 
     if (returnResult) {
         if (res.headersSent) return; 
@@ -402,15 +421,12 @@ exports.excluir = async (req, res) => {
   */
   const { id } = req.params;
   try {
-    const result = await pool.request().query`
-      DELETE FROM anuncios
-      OUTPUT DELETED.*
-      WHERE id = ${id}
-    `;
-    if (result.recordset.length === 0) {
+    const result = await pool.query('DELETE FROM anuncios WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Anúncio não encontrado.' });
     }
-    res.json({ message: 'Anúncio excluído com sucesso.', anuncio: result.recordset[0] });
+    res.json({ message: 'Anúncio excluído com sucesso.', anuncio: result.rows[0] });
   } catch (error) {
     console.error('Erro ao excluir anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });

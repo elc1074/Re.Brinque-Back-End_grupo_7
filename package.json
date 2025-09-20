@@ -20,6 +20,7 @@
     "google-auth-library": "^10.3.0",
     "jsonwebtoken": "^9.0.2",
     "mssql": "^11.0.1",
+    "pg": "^8.16.3",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

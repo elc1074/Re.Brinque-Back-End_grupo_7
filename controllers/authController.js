@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../db');
-const sql = require('mssql');
+const { pool } = require('../db'); // A dependência 'mssql' foi removida
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -11,24 +10,9 @@ exports.googleCallback = async (req, res) => {
     #swagger.tags = ['Autenticação']
     #swagger.summary = 'Callback de Autenticação Google'
     #swagger.description = 'Processa o token de credencial do Google para login ou registro.'
-    #swagger.requestBody = {
-      required: true,
-      content: {
-        "application/json": {
-          schema: {
-            type: 'object',
-            properties: {
-              credential: { type: 'string', description: 'O token ID JWT fornecido pelo Google Sign-In.' }
-            }
-          }
-        }
-      }
-    }
-    #swagger.responses[200] = {
-      description: 'Login ou registro com Google realizado com sucesso.',
-      schema: { $ref: '#/components/schemas/RespostaAutenticacao' }
-    }
-    #swagger.responses[500] = { description: 'Erro interno no processamento da autenticação Google.' }
+    #swagger.requestBody = { ... }
+    #swagger.responses[200] = { ... }
+    #swagger.responses[500] = { ... }
   */
   try {
     const { credential } = req.body;
@@ -47,27 +31,22 @@ exports.googleCallback = async (req, res) => {
       picture: payload.picture,
     };
 
-    const userCheck = await pool.request()
-      .input("email", sql.VarChar(255), googleUser.email)
-      .query("SELECT * FROM usuarios WHERE email = @email");
+    const userCheck = await pool.query("SELECT * FROM usuarios WHERE email = $1", [googleUser.email]);
 
     let usuario;
 
-    if (userCheck.recordset.length > 0) {
-      usuario = userCheck.recordset[0];
+    if (userCheck.rows.length > 0) {
+      usuario = userCheck.rows[0];
     } else {
-      const result = await pool.request()
-        .input("nome_completo", sql.VarChar(255), googleUser.name)
-        .input("email", sql.VarChar(255), googleUser.email)
-        .input("google_id", sql.VarChar(255), googleUser.id)
-        .input("telefone", sql.VarChar(20), "")
-        .query(`
-          INSERT INTO usuarios (nome_completo, email, senha_hash, telefone, google_id)
-          OUTPUT INSERTED.id, INSERTED.nome_completo, INSERTED.email, INSERTED.telefone, INSERTED.google_id
-          VALUES (@nome_completo, @email, NULL, @telefone, @google_id)
-        `);
+      const query = `
+        INSERT INTO usuarios (nome_completo, email, senha_hash, telefone, google_id)
+        VALUES ($1, $2, NULL, $3, $4)
+        RETURNING id, nome_completo, email, telefone, google_id
+      `;
+      const values = [googleUser.name, googleUser.email, "", googleUser.id];
+      const result = await pool.query(query, values);
 
-      usuario = result.recordset[0];
+      usuario = result.rows[0];
     }
 
     const token = jwt.sign(
@@ -89,6 +68,7 @@ exports.googleCallback = async (req, res) => {
       message: "Login Google realizado com sucesso",
     });
   } catch (error) {
+    console.error("Erro na autenticação Google:", error);
     res.status(500).json({ error: "Erro interno no processamento Google" });
   }
 };
@@ -98,17 +78,11 @@ exports.register = async (req, res) => {
   /* #swagger.tags = ['Autenticação']
     #swagger.summary = 'Registrar um novo usuário'
     #swagger.description = 'Cria uma nova conta de usuário com nome, e-mail e senha.'
-    #swagger.requestBody = {
-      required: true,
-      content: { "application/json": { schema: { $ref: "#/components/schemas/CorpoRegistroUsuario" } } }
-    }
-    #swagger.responses[201] = {
-      description: 'Usuário cadastrado com sucesso.',
-      schema: { $ref: '#/components/schemas/RespostaAutenticacao' }
-    }
-    #swagger.responses[400] = { description: 'Campos obrigatórios faltando.' }
-    #swagger.responses[409] = { description: 'Este e-mail já está em uso.' }
-    #swagger.responses[500] = { description: 'Erro interno do servidor.' }
+    #swagger.requestBody = { ... }
+    #swagger.responses[201] = { ... }
+    #swagger.responses[400] = { ... }
+    #swagger.responses[409] = { ... }
+    #swagger.responses[500] = { ... }
   */
   const { nome_completo, email, senha, telefone } = req.body;
 
@@ -120,18 +94,15 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const senha_hash = await bcrypt.hash(senha, salt);
 
-    const result = await pool.request()
-      .input('nome_completo', sql.VarChar(255), nome_completo)
-      .input('email', sql.VarChar(255), email)
-      .input('senha_hash', sql.VarChar(255), senha_hash)
-      .input('telefone', sql.VarChar(20), telefone || '')
-      .query(`
-        INSERT INTO usuarios (nome_completo, email, senha_hash, telefone)
-        OUTPUT INSERTED.id, INSERTED.email, INSERTED.nome_completo
-        VALUES (@nome_completo, @email, @senha_hash, @telefone)
-      `);
+    const query = `
+      INSERT INTO usuarios (nome_completo, email, senha_hash, telefone)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, email, nome_completo
+    `;
+    const values = [nome_completo, email, senha_hash, telefone || ''];
+    const result = await pool.query(query, values);
 
-    const novoUsuario = result.recordset[0];
+    const novoUsuario = result.rows[0];
 
     const token = jwt.sign(
       { id: novoUsuario.id, email: novoUsuario.email },
@@ -151,9 +122,11 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    if (error.number === 2627 || error.number === 2601) {
+    // Código '23505' é para violação de constraint de unicidade no PostgreSQL
+    if (error.code === '23505') { 
       return res.status(409).json({ message: 'Este e-mail já está em uso.' });
     }
+    console.error("Erro no registro:", error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
@@ -163,17 +136,11 @@ exports.login = async (req, res) => {
    /* #swagger.tags = ['Autenticação']
     #swagger.summary = 'Login de usuário'
     #swagger.description = 'Autentica um usuário com e-mail e senha e retorna um token JWT.'
-    #swagger.requestBody = {
-      required: true,
-      content: { "application/json": { schema: { $ref: "#/components/schemas/CorpoLoginUsuario" } } }
-    }
-    #swagger.responses[200] = {
-      description: 'Login bem-sucedido.',
-      schema: { $ref: '#/components/schemas/RespostaAutenticacao' }
-    }
-    #swagger.responses[400] = { description: 'E-mail e senha são obrigatórios.' }
-    #swagger.responses[401] = { description: 'Credenciais inválidas ou a conta requer login com Google.' }
-    #swagger.responses[500] = { description: 'Erro interno do servidor.' }
+    #swagger.requestBody = { ... }
+    #swagger.responses[200] = { ... }
+    #swagger.responses[400] = { ... }
+    #swagger.responses[401] = { ... }
+    #swagger.responses[500] = { ... }
   */
   const { email, senha } = req.body;
 
@@ -182,15 +149,13 @@ exports.login = async (req, res) => {
   }
 
   try {
-    const result = await pool.request()
-      .input('email', sql.VarChar(255), email)
-      .query('SELECT * FROM usuarios WHERE email = @email');
+    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    const usuario = result.recordset[0];
+    const usuario = result.rows[0];
 
     if (usuario.senha_hash === null) {
       return res.status(401).json({
@@ -223,6 +188,7 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Erro no login:", error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
@@ -235,7 +201,7 @@ exports.syncUsuario = async (req, res) => {
     #swagger.description = 'Endpoint legado para sincronização com o Google via authorization_code, substituído por googleCallback.'
     #swagger.deprecated = true
   */
-  // ... (código da função syncUsuario)
+  res.status(410).json({ message: 'Esta rota foi descontinuada.' });
 };
 
 // --- LISTAR USUÁRIOS ---
@@ -245,21 +211,15 @@ exports.getUsuarios = async (req, res) => {
     #swagger.summary = 'Listar todos os usuários'
     #swagger.description = 'Retorna uma lista de todos os usuários cadastrados no sistema (sem dados sensíveis).'
     #swagger.security = [{ "bearerAuth": [] }]
-    #swagger.responses[200] = {
-      description: 'Lista de usuários obtida com sucesso.',
-      content: { "application/json": { schema: {
-        type: 'array',
-        items: { $ref: '#/components/schemas/Usuario' }
-      }}}
-    }
-    #swagger.responses[500] = { description: 'Erro ao buscar usuários.' }
+    #swagger.responses[200] = { ... }
+    #swagger.responses[500] = { ... }
   */
   try {
-    const result = await pool.request()
-      .query('SELECT id, nome_completo, email, telefone, google_id, data_cadastro FROM usuarios ORDER BY nome_completo');
+    const result = await pool.query('SELECT id, nome_completo, email, telefone, google_id, data_cadastro FROM usuarios ORDER BY nome_completo');
     
-    res.json(result.recordset);
+    res.json(result.rows);
   } catch (error) {
+    console.error("Erro ao buscar usuários:", error);
     res.status(500).json({ error: 'Erro ao buscar usuários.' });
   }
 };
