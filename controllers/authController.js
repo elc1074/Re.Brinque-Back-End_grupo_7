@@ -197,12 +197,82 @@ exports.login = async (req, res) => {
 exports.syncUsuario = async (req, res) => {
   /*
     #swagger.tags = ['Autenticação']
-    #swagger.summary = 'Sincronizar conta de usuário com o Google'
-    #swagger.description = 'Endpoint legado para sincronização com o Google via authorization_code, substituído por googleCallback.'
-    #swagger.deprecated = true
+    #swagger.summary = 'Sincronizar conta de usuário com o Google via authorization_code'
+    #swagger.description = 'Recebe o código de autorização do Google, troca por token, busca dados do usuário e registra ou autentica.'
+    #swagger.requestBody = { required: true, content: { "application/json": { schema: { type: "object", properties: { code: { type: "string" }, redirect_uri: { type: "string" } } } } } }
+    #swagger.responses[200] = { description: 'Login Google realizado com sucesso' }
+    #swagger.responses[400] = { description: 'Erro na autenticação Google' }
+    #swagger.responses[500] = { description: 'Erro interno no servidor' }
   */
-  res.status(410).json({ message: 'Esta rota foi descontinuada.' });
+  try {
+    const { code, redirect_uri } = req.body;
+
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri,
+        grant_type: 'authorization_code'
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      return res.status(400).json({ error: 'Falha ao obter token Google', details: errorText });
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    if (!userInfoResponse.ok) {
+      return res.status(400).json({ error: 'Falha ao obter dados do usuário Google' });
+    }
+
+    const googleUser = await userInfoResponse.json();
+
+    const userCheck = await pool.query('SELECT * FROM usuarios WHERE email = $1', [googleUser.email]);
+
+    let usuario;
+
+    if (userCheck.rows.length > 0) {
+      usuario = userCheck.rows[0];
+    } else {
+      const insertQuery = `
+        INSERT INTO usuarios (nome_completo, email, senha_hash, telefone, google_id)
+        VALUES ($1, $2, NULL, '', $3)
+        RETURNING id, nome_completo, email, telefone, google_id
+      `;
+      const values = [googleUser.name, googleUser.email, googleUser.sub];
+      const result = await pool.query(insertQuery, values);
+      usuario = result.rows[0];
+    }
+
+    const token = jwt.sign(
+      { id: usuario.id, email: usuario.email, auth_type: 'google' },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.status(200).json({
+      token,
+      usuario,
+      auth_type: 'google',
+      message: 'Login Google realizado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Erro no login com código OAuth:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
 };
+
 
 // --- LISTAR USUÁRIOS ---
 exports.getUsuarios = async (req, res) => {
