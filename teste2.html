@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Chat Socket.IO</title>
+</head>
+<body>
+    <h1>Cliente de Teste para Chat</h1>
+
+    <div>
+        <label for="conversationId">ID da Conversa:</label>
+        <input type="text" id="conversationId" placeholder="Cole o ID da conversa aqui">
+    </div>
+    <br>
+    <div>
+        <label for="senderId">ID do Remetente (seu ID):</label>
+        <input type="text" id="senderId" placeholder="Seu ID de usuário">
+    </div>
+    <br>
+    <div>
+        <label for="messageContent">Mensagem:</label>
+        <input type="text" id="messageContent" placeholder="Digite sua mensagem">
+    </div>
+    <br>
+    <button onclick="joinRoom()">1. Entrar na Sala</button>
+    <button onclick="sendMessage()">2. Enviar Mensagem</button>
+
+    <h2>Log de Mensagens Recebidas:</h2>
+    <ul id="messages"></ul>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Conecta ao seu servidor local
+        const socket = io('http://localhost:3000');
+
+        socket.on('connect', () => {
+            console.log('✅ Conectado ao servidor com o ID:', socket.id);
+        });
+
+        // Ouve por novas mensagens do servidor
+        socket.on('receiveMessage', (data) => {
+            console.log('📩 Mensagem recebida:', data);
+            const item = document.createElement('li');
+            item.textContent = `[${data.remetente_id}]: ${data.conteudo} (ID da Msg: ${data.id})`;
+            document.getElementById('messages').appendChild(item);
+        });
+
+        socket.on('messageError', (error) => {
+            console.error('❌ Erro do servidor:', error);
+            alert(`Erro ao enviar mensagem: ${error.error}`);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('🔌 Desconectado do servidor.');
+        });
+
+        // Função para entrar em uma sala de conversa
+        function joinRoom() {
+            const conversationId = document.getElementById('conversationId').value;
+            if (!conversationId) {
+                return alert('Por favor, insira o ID da Conversa.');
+            }
+            console.log(`Emitindo 'joinRoom' para a sala: '${conversationId}'`);
+            socket.emit('joinRoom', conversationId);
+        }
+
+        // Função para enviar uma mensagem
+        function sendMessage() {
+            const conversationId = document.getElementById('conversationId').value;
+            const senderId = document.getElementById('senderId').value;
+            const content = document.getElementById('messageContent').value;
+
+            if (!conversationId || !senderId || !content) {
+                return alert('Preencha todos os campos para enviar a mensagem.');
+            }
+
+            const messageData = {
+                conversationId: parseInt(conversationId), // O backend espera um número
+                senderId: parseInt(senderId),         // O backend espera um número
+                content: content
+            };
+
+            console.log("🚀 Enviando mensagem:", messageData);
+            socket.emit('sendMessage', messageData);
+            
+            // Limpa o campo de mensagem
+            document.getElementById('messageContent').value = '';
+        }
+    </script>
+</body>
+</html>

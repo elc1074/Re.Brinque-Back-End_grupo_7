@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "mssql": "^11.0.1",
     "pg": "^8.16.3",
+    "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

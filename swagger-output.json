@@ -60,40 +60,19 @@
         "description": "Cria uma nova conta de usuário com nome, e-mail e senha.",
         "responses": {
           "201": {
-            "description": "Usuário cadastrado com sucesso.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              }
-            }
+            "description": "Created"
           },
           "400": {
-            "description": "Campos obrigatórios faltando."
+            "description": "Bad Request"
           },
           "409": {
-            "description": "Este e-mail já está em uso."
+            "description": "Conflict"
           },
           "500": {
-            "description": "Erro interno do servidor."
+            "description": "Internal Server Error"
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CorpoRegistroUsuario"
-              }
-            }
-          }
-        }
+        "requestBody": {}
       }
     },
     "/api/auth/login": {
@@ -105,40 +84,19 @@
         "description": "Autentica um usuário com e-mail e senha e retorna um token JWT.",
         "responses": {
           "200": {
-            "description": "Login bem-sucedido.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
-            "description": "E-mail e senha são obrigatórios."
+            "description": "Bad Request"
           },
           "401": {
-            "description": "Credenciais inválidas ou a conta requer login com Google."
+            "description": "Unauthorized"
           },
           "500": {
-            "description": "Erro interno do servidor."
+            "description": "Internal Server Error"
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CorpoLoginUsuario"
-              }
-            }
-          }
-        }
+        "requestBody": {}
       }
     },
     "/api/auth/sync": {
@@ -146,14 +104,37 @@
         "tags": [
           "Autenticação"
         ],
-        "summary": "Sincronizar conta de usuário com o Google",
-        "description": "Endpoint legado para sincronização com o Google via authorization_code, substituído por googleCallback.",
+        "summary": "Sincronizar conta de usuário com o Google via authorization_code",
+        "description": "Recebe o código de autorização do Google, troca por token, busca dados do usuário e registra ou autentica.",
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Login Google realizado com sucesso"
+          },
+          "400": {
+            "description": "Erro na autenticação Google"
+          },
+          "500": {
+            "description": "Erro interno no servidor"
           }
         },
-        "deprecated": true
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "redirect_uri": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/google-callback": {
@@ -165,40 +146,13 @@
         "description": "Processa o token de credencial do Google para login ou registro.",
         "responses": {
           "200": {
-            "description": "Login ou registro com Google realizado com sucesso.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaAutenticacao"
-                }
-              }
-            }
+            "description": "OK"
           },
           "500": {
-            "description": "Erro interno no processamento da autenticação Google."
+            "description": "Internal Server Error"
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "credential": {
-                    "type": "string",
-                    "description": "O token ID JWT fornecido pelo Google Sign-In."
-                  }
-                }
-              }
-            }
-          }
-        }
+        "requestBody": {}
       }
     },
     "/api/anuncios/": {
@@ -641,6 +595,93 @@
           }
         ]
       }
+    },
+    "/api/chat/conversas": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "anuncioId": {
+                    "example": "any"
+                  },
+                  "interessadoId": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/conversas/{conversationId}/mensagens": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -751,9 +792,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "Usuario"
         }
       },
       "Anuncio": {
@@ -948,18 +986,12 @@
                     "example": "array"
                   },
                   "items": {
-                    "xml": {
-                      "name": "imagemanuncio"
-                    },
                     "$ref": "#/components/schemas/ImagemAnuncio"
                   }
                 }
               }
             }
           }
-        },
-        "xml": {
-          "name": "Anuncio"
         }
       },
       "ImagemAnuncio": {
@@ -1017,9 +1049,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "ImagemAnuncio"
         }
       },
       "CorpoRegistroUsuario": {
@@ -1109,9 +1138,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "CorpoRegistroUsuario"
         }
       },
       "CorpoLoginUsuario": {
@@ -1170,9 +1196,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "CorpoLoginUsuario"
         }
       },
       "CorpoCriarAnuncio": {
@@ -1358,9 +1381,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "CorpoCriarAnuncio"
         }
       },
       "RespostaAutenticacao": {
@@ -1457,9 +1477,6 @@
               }
             }
           }
-        },
-        "xml": {
-          "name": "RespostaAutenticacao"
         }
       }
     }
