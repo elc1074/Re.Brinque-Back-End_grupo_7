@@ -50,3 +50,23 @@ exports.getMessages = async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar mensagens.' });
   }
 };
+
+exports.getUserConversations = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const conversasRes = await pool.query(
+      `SELECT c.*, a.titulo AS anuncio_titulo
+       FROM conversas c
+       JOIN anuncios a ON c.anuncio_id = a.id
+       WHERE c.interessado_id = $1 OR c.anunciante_id = $1
+       ORDER BY c.id DESC`,
+      [userId]
+    );
+
+    res.status(200).json(conversasRes.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar conversas do usuário.' });
+  }
+};
