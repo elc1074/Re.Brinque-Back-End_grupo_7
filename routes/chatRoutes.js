@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const chatController = require('../controllers/chatController');
-const verifyToken = require('../middlewares/authMiddleware'); // Proteja suas rotas!
+const verifyToken = require('../middlewares/authMiddleware'); 
 
 // Rota para iniciar/obter uma conversa
 router.post('/conversas', verifyToken, chatController.startOrGetConversation);
