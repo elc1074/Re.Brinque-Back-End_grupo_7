@@ -91,3 +91,29 @@ ADD COLUMN google_id VARCHAR(255) NULL;
 -- Torna a coluna senha_hash opcional (permite valores nulos)
 ALTER TABLE usuarios
 ALTER COLUMN senha_hash DROP NOT NULL;
+
+
+CREATE TABLE conversas (
+    id SERIAL PRIMARY KEY,
+    anuncio_id INT NOT NULL,
+    anunciante_id INT NOT NULL,
+    interessado_id INT NOT NULL,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_conversa_anuncio FOREIGN KEY (anuncio_id) REFERENCES anuncios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_conversa_anunciante FOREIGN KEY (anunciante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_conversa_interessado FOREIGN KEY (interessado_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    -- Garante que só exista uma conversa por anúncio/interessado
+    UNIQUE (anuncio_id, interessado_id)
+);
+
+-- Tabela para armazenar cada mensagem individualmente
+CREATE TABLE mensagens (
+    id SERIAL PRIMARY KEY,
+    conversa_id INT NOT NULL,
+    remetente_id INT NOT NULL, -- ID do usuário que enviou
+    conteudo TEXT NOT NULL,
+    data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    lida BOOLEAN DEFAULT FALSE,
+    CONSTRAINT fk_mensagem_conversa FOREIGN KEY (conversa_id) REFERENCES conversas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_mensagem_remetente FOREIGN KEY (remetente_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);

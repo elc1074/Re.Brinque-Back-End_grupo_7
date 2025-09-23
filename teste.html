@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Cliente de Teste Socket.IO</title>
+    <style>
+        body { font-family: sans-serif; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background-color: #f9f9f9; }
+        p { margin: 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>Cliente de Teste Socket.IO</h1>
+    <p>Abra o console do desenvolvedor (F12) para ver os logs detalhados.</p>
+
+    <button id="joinButton">1. Entrar na Sala "1"</button>
+    <button id="sendButton">2. Enviar Mensagem para a Sala "1"</button>
+    <hr>
+    <h2>Log de Eventos na Página:</h2>
+    <div id="log"></div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        function log(message) {
+            console.log(message); // Mostra no console do navegador
+            logDiv.innerHTML += `<p>${new Date().toLocaleTimeString()} - ${message}</p>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        log("Tentando conectar ao servidor em http://localhost:3000...");
+        const socket = io("http://localhost:3000");
+
+        // --- Ouve os eventos do servidor ---
+        socket.on("connect", () => {
+            log(`✅ CONECTADO com o ID: ${socket.id}`);
+        });
+
+        socket.on("disconnect", (reason) => {
+            log(`❌ DESCONECTADO: ${reason}`);
+        });
+
+        // Ouve o evento que o servidor envia de volta com a nova mensagem
+        socket.on("receiveMessage", (data) => {
+            log(`📥 Mensagem recebida do servidor: ${JSON.stringify(data)}`);
+        });
+
+        // --- Ações dos Botões ---
+        document.getElementById("joinButton").onclick = () => {
+            const roomToJoin = "1";
+            log(`⬆️ Enviando evento 'joinRoom' para a sala: ${roomToJoin}`);
+            socket.emit("joinRoom", roomToJoin);
+        };
+
+        document.getElementById("sendButton").onclick = () => {
+            const messagePayload = {
+                conversationId: 1,
+                senderId: 3,
+                content: "Olá do cliente HTML!"
+            };
+            log(`⬆️ Enviando evento 'sendMessage' com dados: ${JSON.stringify(messagePayload)}`);
+            socket.emit("sendMessage", messagePayload);
+        };
+    </script>
+
+</body>
+</html>
