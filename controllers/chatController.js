@@ -4,35 +4,40 @@ const pool = require('../db').pool;
 // Inicia uma conversa ou a retorna se já existir
 exports.startOrGetConversation = async (req, res) => {
   const { anuncioId, interessadoId } = req.body;
-  
+
   try {
-    // Pega o ID do anunciante
     const anuncioRes = await pool.query('SELECT usuario_id FROM anuncios WHERE id = $1', [anuncioId]);
     if (anuncioRes.rows.length === 0) {
       return res.status(404).json({ error: 'Anúncio não encontrado.' });
     }
     const anuncianteId = anuncioRes.rows[0].usuario_id;
 
-    // Verifica se a conversa já existe
-    let conversaRes = await pool.query(
-      'SELECT * FROM conversas WHERE anuncio_id = $1 AND interessado_id = $2',
-      [anuncioId, interessadoId]
-    );
+    const getConversationDetailsQuery = `
+      SELECT
+        c.*,
+        anunciante.nome_completo AS nome_anunciante
+      FROM conversas c
+      JOIN usuarios AS anunciante ON c.anunciante_id = anunciante.id
+      WHERE c.anuncio_id = $1 AND c.interessado_id = $2
+    `;
+
+    let conversaRes = await pool.query(getConversationDetailsQuery, [anuncioId, interessadoId]);
 
     if (conversaRes.rows.length > 0) {
-      // Conversa já existe, retorna os dados
       return res.status(200).json(conversaRes.rows[0]);
     } else {
-      // Cria uma nova conversa
-      const newConversaRes = await pool.query(
-        'INSERT INTO conversas (anuncio_id, anunciante_id, interessado_id) VALUES ($1, $2, $3) RETURNING *',
+      await pool.query(
+        'INSERT INTO conversas (anuncio_id, anunciante_id, interessado_id) VALUES ($1, $2, $3)',
         [anuncioId, anuncianteId, interessadoId]
       );
-      return res.status(201).json(newConversaRes.rows[0]);
+
+      const newConversaDetails = await pool.query(getConversationDetailsQuery, [anuncioId, interessadoId]);
+      
+      return res.status(201).json(newConversaDetails.rows[0]);
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro no servidor ao iniciar conversa.' });
+    console.error('Erro ao iniciar ou obter conversa:', error);
+    res.status(500).json({ error: 'Erro no servidor ao processar a conversa.' });
   }
 };
 
