@@ -7,6 +7,15 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 router.post('/', async (req, res) => {
   const { texto } = req.body;
 
+  if (!texto || typeof texto !== 'string') {
+    return res.status(400).json({ error: 'Texto inválido ou ausente.' });
+  }
+
+  if (!OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY não está definida.');
+    return res.status(500).json({ error: 'Chave da OpenAI não configurada.' });
+  }
+
   try {
     const response = await axios.post(
       'https://api.openai.com/v1/moderations',
@@ -25,7 +34,7 @@ router.post('/', async (req, res) => {
       categorias: resultado.categories,
     });
   } catch (error) {
-    console.error('Erro na moderação:', error.message);
+    console.error('Erro na moderação:', error.response?.data || error.message);
     res.status(500).json({ error: 'Erro ao verificar conteúdo' });
   }
 });
