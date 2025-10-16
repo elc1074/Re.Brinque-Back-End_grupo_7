@@ -10,7 +10,8 @@ const { connectToDatabase } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const anuncioRoutes = require('./routes/anuncioRoutes');
 const cloudinaryRoutes = require('./routes/cloudinaryRoutes');
-const chatRoutes = require('./routes/chatRoutes'); // <-- Nova rota do chat
+const chatRoutes = require('./routes/chatRoutes'); 
+const moderationRoutes = require('./routes/moderationRoutes');
 
 const configureSocket = require('./socketManager');
 
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/anuncios', anuncioRoutes);
 app.use('/api/cloudinary', cloudinaryRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/moderation', moderationRoutes);
 
 const verifyToken = require('./middlewares/authMiddleware');
 app.get('/api/perfil', verifyToken, (req, res) => {
