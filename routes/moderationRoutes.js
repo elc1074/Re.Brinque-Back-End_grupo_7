@@ -4,8 +4,6 @@ const router = express.Router();
 
 const HF_API_KEY = process.env.HF_API_KEY;
 
-const SAFE_LABELS = ['safe'];
-
 router.post('/', async (req, res) => {
   const { texto } = req.body;
 
@@ -25,9 +23,9 @@ router.post('/', async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        timeout: 10000,
+        timeout: 10000
       }
     );
 
