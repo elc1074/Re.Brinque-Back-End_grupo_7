@@ -4,7 +4,7 @@ const router = express.Router();
 
 const HF_API_KEY = process.env.HF_API_KEY;
 
-const SAFE_LABELS = ['safe', '0']; /
+const SAFE_LABELS = ['safe', '0']; 
 
 router.post('/', async (req, res) => {
   const { texto } = req.body;
