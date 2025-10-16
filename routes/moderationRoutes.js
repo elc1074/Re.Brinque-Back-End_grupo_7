@@ -4,7 +4,7 @@ const router = express.Router();
 
 const HF_API_KEY = process.env.HF_API_KEY;
 
-const SAFE_LABELS = ['safe', '0']; 
+const SAFE_LABELS = ['safe'];
 
 router.post('/', async (req, res) => {
   const { texto } = req.body;
@@ -20,14 +20,14 @@ router.post('/', async (req, res) => {
 
   try {
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/Robert0/text-moderation',
+      'https://api-inference.huggingface.co/models/KoalaAI/Text-Moderation',
       { inputs: texto },
       {
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        timeout: 10000
+        timeout: 10000,
       }
     );
 
