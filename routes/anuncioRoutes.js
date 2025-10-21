@@ -9,6 +9,9 @@ router.post('/', authMiddleware, anuncioController.criar);
 // Editar anúncio
 router.put('/:id', authMiddleware, anuncioController.editar);
 
+// Atualizar status do anúncio
+router.patch('/:id/status', authMiddleware, anuncioController.atualizarStatus);
+
 // Listar todos os anúncios (com filtros)
 router.get('/', anuncioController.listarTodos);
 

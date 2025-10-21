@@ -446,3 +446,71 @@ exports.excluir = async (req, res) => {
     res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 };
+
+// Atualizar o status de um anúncio
+  exports.atualizarStatus = async (req, res) => {
+    /*
+      #swagger.tags = ['Anúncios']
+      #swagger.summary = 'Atualizar o status de um anúncio'
+      #swagger.description = 'Atualiza o status de um anúncio (ex: DISPONIVEL, NEGOCIANDO, FINALIZADO). Requer autenticação e que o usuário seja o dono do anúncio.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', description: 'ID do Anúncio', required: true, type: 'integer' }
+      #swagger.requestBody = {
+        required: true,
+        content: { "application/json": { schema: { 
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['DISPONIVEL', 'NEGOCIANDO', 'FINALIZADO'] }
+          },
+          required: ['status']
+        } } }
+      }
+      #swagger.responses[200] = { 
+        description: 'Status do anúncio atualizado com sucesso.',
+        content: { "application/json": { schema: { $ref: '#/components/schemas/Anuncio' } } }
+      }
+      #swagger.responses[400] = { description: 'Status inválido ou não fornecido.' }
+      #swagger.responses[404] = { description: 'Anúncio não encontrado ou usuário não autorizado.' }
+      #swagger.responses[500] = { description: 'Erro interno do servidor.' }
+    */
+    
+    const { id } = req.params;
+    const { status } = req.body;
+    const usuarioId = req.user.id; // Vem do authMiddleware
+
+    // Validação básica do status
+    const allowedStatus = ['DISPONIVEL', 'NEGOCIANDO', 'FINALIZADO'];
+    if (!status || !allowedStatus.includes(status)) {
+      return res.status(400).json({ 
+        message: 'Status inválido. Valores permitidos: DISPONIVEL, NEGOCIANDO, FINALIZADO.' 
+      });
+    }
+
+    try {
+      // Query para atualizar o status, garantindo que o usuário logado
+      // seja o dono do anúncio.
+      const query = `
+        UPDATE anuncios
+        SET 
+          status = $1, 
+          data_atualizacao = CURRENT_TIMESTAMP
+        WHERE id = $2 AND usuario_id = $3
+        RETURNING *;
+      `;
+      
+      const result = await pool.query(query, [status, id, usuarioId]);
+
+      // Verifica se a query atualizou alguma linha
+      if (result.rows.length === 0) {
+        // Isso acontece se o anúncio não existe OU se o usuário não é o dono.
+        return res.status(404).json({ message: 'Anúncio não encontrado ou usuário não autorizado para esta ação.' });
+      }
+
+      // Retorna o anúncio atualizado
+      res.status(200).json({ anuncio: result.rows[0] });
+
+    } catch (error) {
+      console.error('Erro ao atualizar status do anúncio:', error);
+      res.status(500).json({ message: 'Erro interno do servidor.' });
+    }
+  };

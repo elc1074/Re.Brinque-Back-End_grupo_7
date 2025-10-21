@@ -78,7 +78,6 @@ exports.getUserConversations = async (req, res) => {
 
     res.status(200).json(conversasRes.rows);
   } catch (error) {
-    // É uma boa prática logar o erro real no console para debug
     console.error('Erro detalhado ao buscar conversas:', error); 
     res.status(500).json({ error: 'Erro ao buscar conversas do usuário.' });
   }
