@@ -60,18 +60,26 @@ exports.getUserConversations = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const conversasRes = await pool.query(
-      `SELECT c.*, a.titulo AS anuncio_titulo
-       FROM conversas c
-       JOIN anuncios a ON c.anuncio_id = a.id
-       WHERE c.interessado_id = $1 OR c.anunciante_id = $1
-       ORDER BY c.id DESC`,
-      [userId]
-    );
+    const query = `
+      SELECT 
+        c.*, 
+        a.titulo AS anuncio_titulo,
+        anunciante.nome_completo AS nome_anunciante,
+        interessado.nome_completo AS nome_interessado
+      FROM conversas c
+      JOIN anuncios a ON c.anuncio_id = a.id
+      JOIN usuarios anunciante ON c.anunciante_id = anunciante.id
+      JOIN usuarios interessado ON c.interessado_id = interessado.id
+      WHERE c.interessado_id = $1 OR c.anunciante_id = $1
+      ORDER BY c.id DESC
+    `;
+    
+    const conversasRes = await pool.query(query, [userId]);
 
     res.status(200).json(conversasRes.rows);
   } catch (error) {
-    console.error(error);
+    // É uma boa prática logar o erro real no console para debug
+    console.error('Erro detalhado ao buscar conversas:', error); 
     res.status(500).json({ error: 'Erro ao buscar conversas do usuário.' });
   }
 };
