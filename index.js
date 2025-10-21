@@ -48,7 +48,7 @@ app.use(express.json());
 //   next();
 // });
 
-// ✅ Swagger para documentação da API
+// Swagger para documentação da API
 const swaggerUi = require('swagger-ui-express');
 const swaggerFile = require('./swagger-output.json');
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
