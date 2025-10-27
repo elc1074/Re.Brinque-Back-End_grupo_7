@@ -58,7 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/anuncios', anuncioRoutes);
 app.use('/api/cloudinary', cloudinaryRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/moderar-upload', moderarUpload);
+app.use('/api/moderar-upload', moderarUpload);
 
 const verifyToken = require('./middlewares/authMiddleware');
 app.get('/api/perfil', verifyToken, (req, res) => {
