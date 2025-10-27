@@ -29,9 +29,14 @@ router.post('/', upload.single('imagem'), async (req, res) => {
     fs.unlinkSync(filePath); // remove imagem após análise
 
     const resultado = response.data;
-    const bloqueado = resultado.status === 'success' && resultado.moderation_labels?.some(label =>
-      ['nudity', 'weapon', 'violence', 'gore', 'self-harm'].includes(label.name) && label.prob >= 0.7
-    );
+
+    const bloqueado =
+      resultado.offensive?.middle_finger > 0.8 ||
+      resultado.nudity?.none < 0.5 ||
+      resultado.violence?.prob > 0.7 ||
+      resultado.weapon?.classes?.firearm > 0.7 ||
+      resultado.gore?.prob > 0.7 ||
+      resultado['self-harm']?.prob > 0.7;
 
     res.json({ bloqueado, resultado });
   } catch (error) {
