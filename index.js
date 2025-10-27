@@ -11,7 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const anuncioRoutes = require('./routes/anuncioRoutes');
 const cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 const chatRoutes = require('./routes/chatRoutes'); 
-const moderationRoutes = require('./routes/moderationRoutes');
+const moderarUpload = require('./routes/moderarUpload');
 
 const configureSocket = require('./socketManager');
 
@@ -58,7 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/anuncios', anuncioRoutes);
 app.use('/api/cloudinary', cloudinaryRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/moderation', moderationRoutes);
+app.use('/moderar-upload', moderarUpload);
 
 const verifyToken = require('./middlewares/authMiddleware');
 app.get('/api/perfil', verifyToken, (req, res) => {
@@ -73,7 +73,7 @@ configureSocket(io);
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-  await connectToDatabase();
+  //await connectToDatabase();
 
   server.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
