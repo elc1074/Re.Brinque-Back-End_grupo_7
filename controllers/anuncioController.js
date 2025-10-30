@@ -5,7 +5,7 @@ exports.criar = async (req, res) => {
   /*
     #swagger.tags = ['Anúncios']
     #swagger.summary = 'Criar um novo anúncio'
-    #swagger.description = 'Cria um novo anúncio associado a um usuário, incluindo imagens.'
+    #swagger.description = 'Cria um novo anúncio associado a um usuário, incluindo imagens e geolocalização.'
     #swagger.security = [{ "bearerAuth": [] }]
     #swagger.requestBody = {
       required: true,
@@ -24,33 +24,51 @@ exports.criar = async (req, res) => {
   const {
     usuario_id,
     categoria_id,
-    endereco_completo,
     titulo,
     descricao,
     marca,
     tipo,
     condicao,
     status,
-    imagens
+    imagens,
+    location 
   } = req.body;
 
   if (!usuario_id || !categoria_id || !titulo || !tipo || !condicao) {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
-  const client = await pool.connect(); // Pega uma conexão do pool
+  // Validação da localização
+  if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
+    return res.status(400).json({ message: 'Localização (latitude e longitude) é obrigatória.' });
+  }
+
+  const client = await pool.connect(); 
   try {
-    await client.query('BEGIN'); // Inicia a transação
+    await client.query('BEGIN'); 
 
     const queryAnuncio = `
       INSERT INTO anuncios (
-        usuario_id, categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status, data_publicacao, data_atualizacao
+        usuario_id, categoria_id, titulo, descricao, marca, tipo, condicao, status, 
+        localizacao, 
+        data_publicacao, data_atualizacao
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 
+        ST_MakePoint($9, $10), 
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING id
     `;
     const valuesAnuncio = [
-      usuario_id, categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status || 'DISPONIVEL'
+      usuario_id,       // $1
+      categoria_id,     // $2
+      titulo,           // $3
+      descricao,        // $4
+      marca,            // $5
+      tipo,             // $6
+      condicao,         // $7
+      status || 'DISPONIVEL', // $8
+      location.longitude, // $9
+      location.latitude   // $10
     ];
     
     const resultAnuncio = await client.query(queryAnuncio, valuesAnuncio);
@@ -67,16 +85,16 @@ exports.criar = async (req, res) => {
       }
     }
 
-    await client.query('COMMIT'); // Confirma a transação
+    await client.query('COMMIT'); 
     
-    await exports.listarPorId({ params: { id: anuncioId } }, res, true);
+    await exports.listarPorId({ params: { id: anuncioId } }, res, true); 
     
   } catch (error) {
-    await client.query('ROLLBACK'); // Desfaz a transação em caso de erro
+    await client.query('ROLLBACK'); 
     console.error('Erro ao criar anúncio:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
   } finally {
-    client.release(); // Libera a conexão de volta para o pool
+    client.release(); 
   }
 };
 
@@ -85,7 +103,7 @@ exports.editar = async (req, res) => {
   /*
     #swagger.tags = ['Anúncios']
     #swagger.summary = 'Editar um anúncio'
-    #swagger.description = 'Atualiza os dados de um anúncio existente pelo seu ID.'
+    #swagger.description = 'Atualiza os dados de um anúncio existente pelo seu ID, incluindo a geolocalização.'
     #swagger.security = [{ "bearerAuth": [] }]
     #swagger.parameters['id'] = { in: 'path', description: 'ID do Anúncio', required: true, type: 'integer' }
     #swagger.requestBody = {
@@ -105,15 +123,19 @@ exports.editar = async (req, res) => {
   const { id } = req.params;
   const {
     categoria_id,
-    endereco_completo,
     titulo,
     descricao,
     marca,
     tipo,
     condicao,
     status,
-    imagens
+    imagens,
+    location 
   } = req.body;
+
+  if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
+    return res.status(400).json({ message: 'Localização (latitude e longitude) é obrigatória.' });
+  }
 
   const client = await pool.connect();
   try {
@@ -123,19 +145,28 @@ exports.editar = async (req, res) => {
       UPDATE anuncios
       SET
         categoria_id = $1,
-        endereco_completo = $2,
-        titulo = $3,
-        descricao = $4,
-        marca = $5,
-        tipo = $6,
-        condicao = $7,
-        status = $8,
+        titulo = $2,
+        descricao = $3,
+        marca = $4,
+        tipo = $5,
+        condicao = $6,
+        status = $7,
+        localizacao = ST_MakePoint($8, $9), 
         data_atualizacao = CURRENT_TIMESTAMP
-      WHERE id = $9
+      WHERE id = $10
       RETURNING *
     `;
     const valuesUpdate = [
-      categoria_id, endereco_completo, titulo, descricao, marca, tipo, condicao, status, id
+      categoria_id,       // $1
+      titulo,             // $2
+      descricao,          // $3
+      marca,              // $4
+      tipo,               // $5
+      condicao,           // $6
+      status,             // $7
+      location.longitude, // $8
+      location.latitude,  // $9
+      id                  // $10
     ];
 
     const result = await client.query(queryUpdate, valuesUpdate);
@@ -146,7 +177,6 @@ exports.editar = async (req, res) => {
     }
 
     await client.query('DELETE FROM imagensAnuncio WHERE anuncio_id = $1', [id]);
-
     if (imagens && imagens.length > 0) {
       for (const imagem of imagens) {
         const queryImagem = `
@@ -175,13 +205,16 @@ exports.editar = async (req, res) => {
 exports.listarTodos = async (req, res) => {
   /*
     #swagger.tags = ['Anúncios']
-    #swagger.summary = 'Listar e filtrar anúncios'
-    #swagger.description = 'Retorna uma lista de todos os anúncios, com a possibilidade de aplicar filtros.'
+    #swagger.summary = 'Listar e filtrar anúncios (com geolocalização)'
+    #swagger.description = 'Retorna uma lista de todos os anúncios, com a possibilidade de aplicar filtros e busca por proximidade.'
     #swagger.parameters['titulo'] = { in: 'query', description: 'Filtrar por título (busca parcial)', type: 'string' }
     #swagger.parameters['categoria_id'] = { in: 'query', description: 'Filtrar por ID da categoria', type: 'integer' }
     #swagger.parameters['tipo'] = { in: 'query', description: 'Filtrar por tipo', type: 'string', enum: ['TROCA', 'DOACAO'] }
     #swagger.parameters['condicao'] = { in: 'query', description: 'Filtrar por condição', type: 'string', enum: ['NOVO', 'SEMINOVO', 'USADO'] }
     #swagger.parameters['marca'] = { in: 'query', description: 'Filtrar por marca (busca parcial)', type: 'string' }
+    #swagger.parameters['latitude'] = { in: 'query', description: 'Latitude do usuário (para busca por proximidade)', type: 'number', format: 'float' }
+    #swagger.parameters['longitude'] = { in: 'query', description: 'Longitude do usuário (para busca por proximidade)', type: 'number', format: 'float' }
+    #swagger.parameters['raio'] = { in: 'query', description: 'Raio de busca em quilômetros (usar com latitude/longitude)', type: 'number', format: 'float' }
     #swagger.responses[200] = {
       description: 'Lista de anúncios retornada com sucesso.',
       content: { "application/json": { schema: { 
@@ -189,37 +222,32 @@ exports.listarTodos = async (req, res) => {
         properties: {
           anuncios: {
             type: 'array',
-            items: { $ref: '#/components/schemas/Anuncio' }
+            items: { $ref: '#/components/schemas/AnuncioComDistancia' }
           }
         }
       } } }
     }
     #swagger.responses[500] = { description: 'Erro interno do servidor.' }
   */
-  const { titulo, categoria_id, tipo, condicao, marca } = req.query;
+  const { 
+    titulo, 
+    categoria_id, 
+    tipo, 
+    condicao, 
+    marca, 
+    latitude,
+    longitude,
+    raio 
+  } = req.query;
 
   try {
-    let query = `
-        SELECT 
-          a.*,
-          u.nome_completo as nome_usuario, -- <<< ADICIONADO
-          ia.id as imagem_id, 
-          ia.url_imagem, 
-          ia.principal
-        FROM 
-          anuncios a
-        JOIN 
-          usuarios u ON a.usuario_id = u.id -- <<< ADICIONADO
-        LEFT JOIN 
-          imagensAnuncio ia ON a.id = ia.anuncio_id
-    `;
-
     const conditions = [];
     const values = [];
     let paramIndex = 1;
 
+    // --- Parâmetros de Filtro Padrão ---
     if (titulo) {
-      conditions.push(`a.titulo ILIKE $${paramIndex++}`); // ILIKE para busca case-insensitive
+      conditions.push(`a.titulo ILIKE $${paramIndex++}`); 
       values.push(`%${titulo}%`);
     }
     if (categoria_id) {
@@ -238,13 +266,56 @@ exports.listarTodos = async (req, res) => {
         conditions.push(`a.marca ILIKE $${paramIndex++}`);
         values.push(`%${marca}%`);
     }
+    
+    let selectDistancia = '';
+    let orderBy = 'ORDER BY a.data_publicacao DESC';
+   
+    if (latitude && longitude) {
+      const userLon = parseFloat(longitude);
+      const userLat = parseFloat(latitude);
+
+      // Adiciona o cálculo de distância ao SELECT
+      selectDistancia = `, ST_Distance(a.localizacao, ST_MakePoint($${paramIndex++}, $${paramIndex++})::geography) AS distancia_metros`;
+      values.push(userLon, userLat);
+
+      // Se um 'raio' for fornecido, adiciona um filtro ST_DWithin
+      if (raio) {
+        const raioEmMetros = parseFloat(raio) * 1000;
+        
+        conditions.push(`ST_DWithin(a.localizacao, ST_MakePoint($${paramIndex++}, $${paramIndex++})::geography, $${paramIndex++})`);
+        values.push(userLon, userLat, raioEmMetros);
+      }
+      
+      // Se a localização for fornecida, sempre ordena por distância
+      orderBy = 'ORDER BY distancia_metros ASC NULLS LAST'; 
+    }
+
+    // --- Construção da Query ---
+    let query = `
+        SELECT 
+          a.*,
+          u.nome_completo as nome_usuario,
+          ia.id as imagem_id, 
+          ia.url_imagem, 
+          ia.principal,
+          ST_Y(a.localizacao::geometry) as latitude,  
+          ST_X(a.localizacao::geometry) as longitude 
+          ${selectDistancia} 
+        FROM 
+          anuncios a
+        JOIN 
+          usuarios u ON a.usuario_id = u.id 
+        LEFT JOIN 
+          imagensAnuncio ia ON a.id = ia.anuncio_id
+    `;
 
     if (conditions.length > 0) {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    query += ` ORDER BY a.data_publicacao DESC`;
+    query += ` ${orderBy}`; 
 
+    // --- Execução e Formatação ---
     const result = await pool.query(query, values);
 
     const anunciosMap = new Map();
@@ -257,6 +328,7 @@ exports.listarTodos = async (req, res) => {
         delete anunciosMap.get(row.id).imagem_id;
         delete anunciosMap.get(row.id).url_imagem;
         delete anunciosMap.get(row.id).principal;
+        delete anunciosMap.get(row.id).localizacao; 
       }
       
       if (row.imagem_id) {
@@ -282,7 +354,7 @@ exports.listarPorUsuario = async (req, res) => {
     /*
       #swagger.tags = ['Anúncios']
       #swagger.summary = 'Listar anúncios por ID do usuário'
-      #swagger.description = 'Retorna todos os anúncios criados por um usuário específico.'
+      #swagger.description = 'Retorna todos os anúncios criados por um usuário específico, incluindo dados de localização.'
       #swagger.security = [{ "bearerAuth": [] }]
       #swagger.parameters['usuario_id'] = { in: 'path', description: 'ID do Usuário', required: true, type: 'integer' }
       #swagger.responses[200] = {
@@ -305,14 +377,16 @@ exports.listarPorUsuario = async (req, res) => {
         const query = `
             SELECT 
                 a.*,
-                u.nome_completo as nome_usuario, -- <<< ADICIONADO
+                u.nome_completo as nome_usuario,
+                ST_Y(a.localizacao::geometry) as latitude,
+                ST_X(a.localizacao::geometry) as longitude,
                 ia.id as imagem_id, 
                 ia.url_imagem, 
                 ia.principal
             FROM 
                 anuncios a
-                JOIN 
-                usuarios u ON a.usuario_id = u.id -- <<< ADICIONADO
+            JOIN 
+                usuarios u ON a.usuario_id = u.id 
             LEFT JOIN 
                 imagensAnuncio ia ON a.id = ia.anuncio_id
             WHERE
@@ -335,6 +409,7 @@ exports.listarPorUsuario = async (req, res) => {
                 delete anunciosMap.get(row.id).imagem_id;
                 delete anunciosMap.get(row.id).url_imagem;
                 delete anunciosMap.get(row.id).principal;
+                delete anunciosMap.get(row.id).localizacao;
             }
 
             if (row.imagem_id) {
@@ -360,7 +435,7 @@ exports.listarPorId = async (req, res, returnResult = false) => {
   /*
     #swagger.tags = ['Anúncios']
     #swagger.summary = 'Obter anúncio por ID'
-    #swagger.description = 'Retorna os detalhes de um anúncio específico pelo seu ID.'
+    #swagger.description = 'Retorna os detalhes de um anúncio específico pelo seu ID, including localização.'
     #swagger.parameters['id'] = { in: 'path', description: 'ID do Anúncio', required: true, type: 'integer' }
     #swagger.responses[200] = {
       description: 'Anúncio encontrado com sucesso.',
@@ -374,11 +449,12 @@ exports.listarPorId = async (req, res, returnResult = false) => {
   */
   const { id } = req.params;
   try {
-    // MODIFICADO: Query para incluir o nome do usuário
     const queryAnuncio = `
       SELECT 
         a.*, 
-        u.nome_completo as nome_usuario
+        u.nome_completo as nome_usuario,
+        ST_Y(a.localizacao::geometry) as latitude,
+        ST_X(a.localizacao::geometry) as longitude
       FROM anuncios a
       JOIN usuarios u ON a.usuario_id = u.id
       WHERE a.id = $1
@@ -396,6 +472,7 @@ exports.listarPorId = async (req, res, returnResult = false) => {
     
     const anuncio = resultAnuncio.rows[0];
     anuncio.imagens = resultImagens.rows;
+    delete anuncio.localizacao; 
 
     if (returnResult) {
         if (res.headersSent) return; 
@@ -426,7 +503,7 @@ exports.excluir = async (req, res) => {
         type: 'object',
         properties: { 
           message: { type: 'string', example: 'Anúncio excluído com sucesso.' },
-          anuncio: { $ref: '#/components/schemas/Anuncio' }
+          anuncio: { $ref: '#/components/schemas/AnuncioExcluido' }
         }
       } } }
     }
@@ -467,7 +544,10 @@ exports.excluir = async (req, res) => {
       }
       #swagger.responses[200] = { 
         description: 'Status do anúncio atualizado com sucesso.',
-        content: { "application/json": { schema: { $ref: '#/components/schemas/Anuncio' } } }
+        content: { "application/json": { schema: { 
+            type: 'object',
+            properties: { anuncio: { $ref: '#/components/schemas/Anuncio' } }
+        } } }
       }
       #swagger.responses[400] = { description: 'Status inválido ou não fornecido.' }
       #swagger.responses[404] = { description: 'Anúncio não encontrado ou usuário não autorizado.' }
@@ -476,9 +556,8 @@ exports.excluir = async (req, res) => {
     
     const { id } = req.params;
     const { status } = req.body;
-    const usuarioId = req.user.id; // Vem do authMiddleware
+    const usuarioId = req.user.id; 
 
-    // Validação básica do status
     const allowedStatus = ['DISPONIVEL', 'NEGOCIANDO', 'FINALIZADO'];
     if (!status || !allowedStatus.includes(status)) {
       return res.status(400).json({ 
@@ -487,8 +566,6 @@ exports.excluir = async (req, res) => {
     }
 
     try {
-      // Query para atualizar o status, garantindo que o usuário logado
-      // seja o dono do anúncio.
       const query = `
         UPDATE anuncios
         SET 
@@ -500,14 +577,11 @@ exports.excluir = async (req, res) => {
       
       const result = await pool.query(query, [status, id, usuarioId]);
 
-      // Verifica se a query atualizou alguma linha
       if (result.rows.length === 0) {
-        // Isso acontece se o anúncio não existe OU se o usuário não é o dono.
         return res.status(404).json({ message: 'Anúncio não encontrado ou usuário não autorizado para esta ação.' });
       }
 
-      // Retorna o anúncio atualizado
-      res.status(200).json({ anuncio: result.rows[0] });
+      await exports.listarPorId({ params: { id } }, res);
 
     } catch (error) {
       console.error('Erro ao atualizar status do anúncio:', error);
