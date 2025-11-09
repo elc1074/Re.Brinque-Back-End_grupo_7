@@ -13,6 +13,7 @@ const cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 const chatRoutes = require('./routes/chatRoutes'); 
 const moderarUpload = require('./routes/moderarUpload');
 const moderarTextoRouter = require("./routes/moderarTexto");
+const usuarioRoutes = require('./routes/usuarioRoutes');
 
 const configureSocket = require('./socketManager');
 
@@ -61,6 +62,7 @@ app.use('/api/cloudinary', cloudinaryRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/moderar-upload', moderarUpload);
 app.use("/api/moderar-texto", moderarTextoRouter);
+app.use('/api/usuarios', usuarioRoutes);
 
 const verifyToken = require('./middlewares/authMiddleware');
 app.get('/api/perfil', verifyToken, (req, res) => {

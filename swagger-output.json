@@ -851,6 +851,158 @@
           }
         }
       }
+    },
+    "/api/moderar-texto/": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "texto": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/perfil/foto": {
+      "put": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Atualizar foto de perfil do usuário",
+        "description": "Atualiza a URL da foto de perfil para o usuário logado.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Foto de perfil atualizada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "usuario": {
+                      "$ref": "#/components/schemas/UsuarioDetalhes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "URL da foto não fornecida."
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Erro interno do servidor."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "foto_perfil_url": {
+                    "type": "string",
+                    "description": "URL da imagem após o upload para o Cloudinary."
+                  }
+                },
+                "required": [
+                  "foto_perfil_url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/{id}/foto": {
+      "get": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Obter foto de perfil por ID",
+        "description": "Retorna a URL da foto de perfil de um usuário específico. Não requer autenticação.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do Usuário"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL da foto de perfil retornada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "foto_perfil_url": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "https://res.cloudinary.com/.../foto.jpg"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuário não encontrado."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
+          }
+        }
+      }
     }
   },
   "components": {

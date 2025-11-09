@@ -117,3 +117,6 @@ CREATE TABLE mensagens (
     CONSTRAINT fk_mensagem_conversa FOREIGN KEY (conversa_id) REFERENCES conversas(id) ON DELETE CASCADE,
     CONSTRAINT fk_mensagem_remetente FOREIGN KEY (remetente_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
+
+ALTER TABLE usuarios
+ADD COLUMN foto_perfil_url VARCHAR(255) NULL; -- NULL torna o campo opcional
