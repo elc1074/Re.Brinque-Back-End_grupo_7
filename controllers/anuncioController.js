@@ -246,6 +246,9 @@ exports.listarTodos = async (req, res) => {
     let paramIndex = 1;
 
     // --- Parâmetros de Filtro Padrão ---
+    conditions.push(`a.status NOT IN ($${paramIndex++}, $${paramIndex++})`);
+    values.push('NEGOCIANDO', 'FINALIZADO');
+
     if (titulo) {
       conditions.push(`a.titulo ILIKE $${paramIndex++}`); 
       values.push(`%${titulo}%`);
