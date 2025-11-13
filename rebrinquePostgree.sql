@@ -37,7 +37,7 @@ CREATE TABLE anuncios (
     categoria_id INT NULL,
     titulo VARCHAR(255) NOT NULL,
     descricao TEXT,
-    marca VARCHAR(100) NULL, -- <-- Nova coluna
+    marca VARCHAR(100) NULL,
     endereco_completo TEXT,
     tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('TROCA','DOACAO')),
     condicao VARCHAR(10) NOT NULL CHECK (condicao IN ('NOVO','SEMINOVO','USADO')),

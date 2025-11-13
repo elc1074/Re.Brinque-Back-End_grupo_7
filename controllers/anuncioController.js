@@ -2,25 +2,6 @@ const { pool } = require('../db');
 
 // Criar anúncio com imagens
 exports.criar = async (req, res) => {
-  /*
-    #swagger.tags = ['Anúncios']
-    #swagger.summary = 'Criar um novo anúncio'
-    #swagger.description = 'Cria um novo anúncio associado a um usuário, incluindo imagens e geolocalização.'
-    #swagger.security = [{ "bearerAuth": [] }]
-    #swagger.requestBody = {
-      required: true,
-      content: { "application/json": { schema: { $ref: "#/components/schemas/CorpoCriarAnuncio" } } }
-    }
-    #swagger.responses[201] = { 
-      description: 'Anúncio criado com sucesso.',
-      content: { "application/json": { schema: { 
-        type: 'object',
-        properties: { anuncio: { $ref: '#/components/schemas/Anuncio' } }
-      } } }
-    }
-    #swagger.responses[400] = { description: 'Campos obrigatórios faltando.' }
-    #swagger.responses[500] = { description: 'Erro interno do servidor.' }
-  */
   const {
     usuario_id,
     categoria_id,
@@ -38,55 +19,76 @@ exports.criar = async (req, res) => {
     return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
   }
 
-  // Validação da localização
-  if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
-    return res.status(400).json({ message: 'Localização (latitude e longitude) é obrigatória.' });
-  }
-
   const client = await pool.connect(); 
   try {
     await client.query('BEGIN'); 
 
-    const queryAnuncio = `
-      INSERT INTO anuncios (
-        usuario_id, categoria_id, titulo, descricao, marca, tipo, condicao, status, 
-        localizacao, 
-        data_publicacao, data_atualizacao
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 
-        ST_MakePoint($9, $10), 
-        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING id
-    `;
-    const valuesAnuncio = [
-      usuario_id,       // $1
-      categoria_id,     // $2
-      titulo,           // $3
-      descricao,        // $4
-      marca,            // $5
-      tipo,             // $6
-      condicao,         // $7
-      status || 'DISPONIVEL', // $8
-      location.longitude, // $9
-      location.latitude   // $10
-    ];
-    
+    // Monta dinamicamente a query conforme a presença da localização
+    let queryAnuncio;
+    let valuesAnuncio;
+
+    if (location && typeof location.latitude !== 'undefined' && typeof location.longitude !== 'undefined') {
+      queryAnuncio = `
+        INSERT INTO anuncios (
+          usuario_id, categoria_id, titulo, descricao, marca, tipo, condicao, status, 
+          localizacao, 
+          data_publicacao, data_atualizacao
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 
+          ST_MakePoint($9, $10), 
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+      `;
+      valuesAnuncio = [
+        usuario_id,
+        categoria_id,
+        titulo,
+        descricao,
+        marca,
+        tipo,
+        condicao,
+        status || 'DISPONIVEL',
+        location.longitude,
+        location.latitude
+      ];
+    } else {
+      queryAnuncio = `
+        INSERT INTO anuncios (
+          usuario_id, categoria_id, titulo, descricao, marca, tipo, condicao, status,
+          localizacao,
+          data_publicacao, data_atualizacao
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 
+          NULL,
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+      `;
+      valuesAnuncio = [
+        usuario_id,
+        categoria_id,
+        titulo,
+        descricao,
+        marca,
+        tipo,
+        condicao,
+        status || 'DISPONIVEL'
+      ];
+    }
+
     const resultAnuncio = await client.query(queryAnuncio, valuesAnuncio);
     const anuncioId = resultAnuncio.rows[0].id;
 
     if (imagens && imagens.length > 0) {
       for (const imagem of imagens) {
-        const queryImagem = `
-          INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
-          VALUES ($1, $2, $3)
-        `;
-        const valuesImagem = [anuncioId, imagem.url_imagem, imagem.principal || false];
-        await client.query(queryImagem, valuesImagem);
+        await client.query(
+          `INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
+           VALUES ($1, $2, $3)`,
+          [anuncioId, imagem.url_imagem, imagem.principal || false]
+        );
       }
     }
 
     await client.query('COMMIT'); 
-    
     await exports.listarPorId({ params: { id: anuncioId } }, res, true); 
     
   } catch (error) {
@@ -100,26 +102,6 @@ exports.criar = async (req, res) => {
 
 // Editar anúncio com imagens
 exports.editar = async (req, res) => {
-  /*
-    #swagger.tags = ['Anúncios']
-    #swagger.summary = 'Editar um anúncio'
-    #swagger.description = 'Atualiza os dados de um anúncio existente pelo seu ID, incluindo a geolocalização.'
-    #swagger.security = [{ "bearerAuth": [] }]
-    #swagger.parameters['id'] = { in: 'path', description: 'ID do Anúncio', required: true, type: 'integer' }
-    #swagger.requestBody = {
-      required: true,
-      content: { "application/json": { schema: { $ref: "#/components/schemas/CorpoEditarAnuncio" } } }
-    }
-    #swagger.responses[201] = { 
-      description: 'Anúncio atualizado com sucesso.',
-      content: { "application/json": { schema: { 
-        type: 'object',
-        properties: { anuncio: { $ref: '#/components/schemas/Anuncio' } }
-      } } }
-    }
-    #swagger.responses[404] = { description: 'Anúncio não encontrado.' }
-    #swagger.responses[500] = { description: 'Erro interno do servidor.' }
-  */
   const { id } = req.params;
   const {
     categoria_id,
@@ -133,41 +115,68 @@ exports.editar = async (req, res) => {
     location 
   } = req.body;
 
-  if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
-    return res.status(400).json({ message: 'Localização (latitude e longitude) é obrigatória.' });
-  }
-
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const queryUpdate = `
-      UPDATE anuncios
-      SET
-        categoria_id = $1,
-        titulo = $2,
-        descricao = $3,
-        marca = $4,
-        tipo = $5,
-        condicao = $6,
-        status = $7,
-        localizacao = ST_MakePoint($8, $9), 
-        data_atualizacao = CURRENT_TIMESTAMP
-      WHERE id = $10
-      RETURNING *
-    `;
-    const valuesUpdate = [
-      categoria_id,       // $1
-      titulo,             // $2
-      descricao,          // $3
-      marca,              // $4
-      tipo,               // $5
-      condicao,           // $6
-      status,             // $7
-      location.longitude, // $8
-      location.latitude,  // $9
-      id                  // $10
-    ];
+    let queryUpdate;
+    let valuesUpdate;
+
+    if (location && typeof location.latitude !== 'undefined' && typeof location.longitude !== 'undefined') {
+      queryUpdate = `
+        UPDATE anuncios
+        SET
+          categoria_id = $1,
+          titulo = $2,
+          descricao = $3,
+          marca = $4,
+          tipo = $5,
+          condicao = $6,
+          status = $7,
+          localizacao = ST_MakePoint($8, $9),
+          data_atualizacao = CURRENT_TIMESTAMP
+        WHERE id = $10
+        RETURNING *
+      `;
+      valuesUpdate = [
+        categoria_id,
+        titulo,
+        descricao,
+        marca,
+        tipo,
+        condicao,
+        status,
+        location.longitude,
+        location.latitude,
+        id
+      ];
+    } else {
+      queryUpdate = `
+        UPDATE anuncios
+        SET
+          categoria_id = $1,
+          titulo = $2,
+          descricao = $3,
+          marca = $4,
+          tipo = $5,
+          condicao = $6,
+          status = $7,
+          localizacao = NULL,
+          data_atualizacao = CURRENT_TIMESTAMP
+        WHERE id = $8
+        RETURNING *
+      `;
+      valuesUpdate = [
+        categoria_id,
+        titulo,
+        descricao,
+        marca,
+        tipo,
+        condicao,
+        status,
+        id
+      ];
+    }
 
     const result = await client.query(queryUpdate, valuesUpdate);
 
@@ -179,17 +188,15 @@ exports.editar = async (req, res) => {
     await client.query('DELETE FROM imagensAnuncio WHERE anuncio_id = $1', [id]);
     if (imagens && imagens.length > 0) {
       for (const imagem of imagens) {
-        const queryImagem = `
-          INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
-          VALUES ($1, $2, $3)
-        `;
-        const valuesImagem = [id, imagem.url_imagem, imagem.principal || false];
-        await client.query(queryImagem, valuesImagem);
+        await client.query(
+          `INSERT INTO imagensAnuncio (anuncio_id, url_imagem, principal)
+           VALUES ($1, $2, $3)`,
+          [id, imagem.url_imagem, imagem.principal || false]
+        );
       }
     }
 
     await client.query('COMMIT');
-    
     await exports.listarPorId({ params: { id } }, res, true);
 
   } catch (error) {
