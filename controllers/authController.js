@@ -41,7 +41,7 @@ exports.googleCallback = async (req, res) => {
       const query = `
         INSERT INTO usuarios (nome_completo, email, senha_hash, telefone, google_id)
         VALUES ($1, $2, NULL, $3, $4)
-        RETURNING id, nome_completo, email, telefone, google_id
+        RETURNING id, nome_completo, email, telefone, google_id, foto_perfil_url
       `;
       const values = [googleUser.name, googleUser.email, "", googleUser.id];
       const result = await pool.query(query, values);
@@ -63,6 +63,7 @@ exports.googleCallback = async (req, res) => {
         email: usuario.email,
         telefone: usuario.telefone,
         google_id: usuario.google_id,
+        foto_perfil_url: usuario.foto_perfil_url,
       },
       auth_type: "google",
       message: "Login Google realizado com sucesso",
@@ -97,7 +98,7 @@ exports.register = async (req, res) => {
     const query = `
       INSERT INTO usuarios (nome_completo, email, senha_hash, telefone)
       VALUES ($1, $2, $3, $4)
-      RETURNING id, email, nome_completo
+      RETURNING id, email, nome_completo, foto_perfil_url
     `;
     const values = [nome_completo, email, senha_hash, telefone || ''];
     const result = await pool.query(query, values);
@@ -116,7 +117,8 @@ exports.register = async (req, res) => {
       usuario: {
         id: novoUsuario.id,
         nome: novoUsuario.nome_completo,
-        email: novoUsuario.email
+        email: novoUsuario.email,
+        foto_perfil_url: novoUsuario.foto_perfil_url
       },
       auth_type: 'normal'
     });
@@ -182,7 +184,8 @@ exports.login = async (req, res) => {
       usuario: {
         id: usuario.id,
         nome: usuario.nome_completo,
-        email: usuario.email
+        email: usuario.email,
+        foto_perfil_url: usuario.foto_perfil_url
       },
       auth_type: 'normal'
     });
