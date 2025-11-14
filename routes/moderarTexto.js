@@ -33,11 +33,26 @@ router.post("/", async (req, res) => {
     const classes = output?.classes || [];
     const stringMatches = output?.string_matches || [];
 
-    // Bloqueia se alguma categoria tiver valor >= 2
-    const categoriaSensivel = classes.find(c => c.value >= 2);
+    const bloqueiosCriticos = [
+      "sexual",
+      "sexual_description",
+      "child_exploitation",
+      "self_harm",
+      "violence",
+      "violent_description",
+      "weapons",
+      "drugs",
+      "hate",
+      "bullying",
+    ];
 
-    // Bloqueia se houver qualquer match do tipo "profanity"
-    const contemProfanidade = stringMatches.some(m => m.type === "profanity");
+    const categoriaSensivel = classes.find(
+      (c) => bloqueiosCriticos.includes(c.class) && c.value >= 1
+    );
+
+    const contemProfanidade = stringMatches.some(
+      (m) => m.type === "profanity"
+    );
 
     const bloqueado = Boolean(categoriaSensivel || contemProfanidade);
 
